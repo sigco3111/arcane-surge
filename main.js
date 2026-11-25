@@ -82,6 +82,7 @@ const TS=parseFloat(new URLSearchParams(location.search).get('ts'))||1; // 테�
 const WEAK=new URLSearchParams(location.search).has('weak'); // 패배 경로 테스트용
 const BOSSONLY=new URLSearchParams(location.search).has('bossonly'); // 보스 돌파 경로 단독 검증용
 const FXSLOW=parseFloat(new URLSearchParams(location.search).get('fxslow'))||1; // 이펙트 수명 배율(캡처 전용, 외형 불변)
+const NOFX=new URLSearchParams(location.search).has('nofx'); // 로직 회귀 전용: 효과 재생/그리기 생략
 const BOSS={u:'bosses/Mushnub_Evolved.gltf',hp:260,spd:1.9,s:0.95,rr:1.3,gltf:true};
 
 // ---------- state ----------
@@ -262,13 +263,13 @@ function fireBolt(unit,target){
   else{mesh=new THREE.Mesh(new THREE.OctahedronGeometry(0.16),new THREE.MeshBasicMaterial({color:c.color}));mesh.scale.set(0.7,0.7,1.8);grp.add(mesh);}
   grp.position.copy(from);scene.add(grp);
   const p={mesh:grp,target,dmg:c.dmg*G.dmgMul,speed:22,kind:c.kind,color:c.color,hitEfk:c.hitEfk||'hit'};
-  if(c.kind==='fire')p.efkH=efkPlay('fireball',from,0.45,1.0); // 메이지는 FireBall 샘플이 날아가는 탄체
+  if(c.kind==='fire')p.efkH=efkPlay('fireball',from,0.35,1.0); // 메이지는 FireBall 샘플이 날아가는 탄체
   G.projs.push(p);
   playOnce(unit,c.anim,'Walking_A');
 }
 function cleave(unit,target){
   const p=target.obj.position.clone();p.y=0.8;
-  efkPlay(unit.cfg.hitEfk||'ember',p,0.42,1.3);
+  efkPlay(unit.cfg.hitEfk||'ember',p,0.3,1.7);
   damage(target,unit.cfg.dmg*G.dmgMul);
   playOnce(unit,unit.cfg.anim,'Walking_A');
 }
@@ -283,9 +284,9 @@ function damage(t,d){
 function killUnit(t){
   if(t.kind==='foe'){
     G.kills++;
-    const dp=t.obj.position.clone();dp.y=0.9;efkPlay(t.isBoss?'featherbomb':'toonhit',dp,t.isBoss?0.7:0.38,1.2);
+    const dp=t.obj.position.clone();dp.y=0.9;efkPlay(t.isBoss?'featherbomb':'toonhit',dp,t.isBoss?0.55:0.32,1.5);
     if(G.kills%CFG.killsPerLevel===0){G.level++;G.dmgMul*=CFG.levelMul;
-      efkPlay('powerup',new THREE.Vector3(G.squad.position.x,0.2,G.squad.position.z),0.65,1);
+      efkPlay('powerup',new THREE.Vector3(G.squad.position.x,0.2,G.squad.position.z),0.5,1.2);
       const l=labelSprite('레벨 업!','#ffe27a',2.4);l.position.set(G.squad.position.x,2.6,G.squad.position.z-1);addFx(l,1.6);}
     if(t.acts.Death_A||t.acts.Death){const d=t.acts.Death_A||t.acts.Death;
       Object.values(t.acts).forEach(a=>a.stop());d.reset();d.setLoop(THREE.LoopOnce,1);d.clampWhenFinished=true;d.play();}
@@ -295,11 +296,11 @@ function killUnit(t){
   }else if(t.kind==='block'){
     const p=t.obj.position.clone();p.y=1;
     if(t.btype==='chest'){
-      efkPlay('bene',p,0.55,1.1);
+      efkPlay('bene',p,0.45,1.3);
       const l=labelSprite('대원 +1','#ffd966',2.2);l.position.copy(p).add(new THREE.Vector3(0,1,0));addFx(l,1.6);
       spawnAlly(t.obj.userData.rewardCls||EXTRA_CYCLE[0]);
     }else{
-      efkPlay('powerup',p,0.55,1.1);
+      efkPlay('powerup',p,0.45,1.3);
       G.dmgMul*=1.2;
       const l=labelSprite('공격력 +20%','#9fe8ff',2.4);l.position.copy(p).add(new THREE.Vector3(0,1,0));addFx(l,1.6);
     }
@@ -358,7 +359,7 @@ async function init(){
   if(WEAK)G.dmgMul=0.05;
   setStage(stg);
   try{await efkInit();}catch(e){console.warn('effekseer off:',e.message);efk=null;}
-  window.G=G;window.__efk=()=>efk?Object.keys(efk.eff):null;window.__efkPlay=(id,x,y,z,s)=>efkPlay(id,{x,y,z},s||0.8,1); // 테스트 훅
+  window.G=G;window.__efk=()=>efk?Object.keys(efk.eff):null;window.__efkPlay=(id,x,y,z,s,sp)=>efkPlay(id,{x,y,z},s||0.8,sp||1);window.__efkStop=()=>{if(efk)efk.ctx.stopAll();}; // 테스트 훅
   await pre; // 전 에셋 예비 로드 완료 대기
   const sb=$('startBtn');sb.disabled=false;sb.textContent='게임 시작';
   sb.addEventListener('click',()=>{$('title').classList.add('hidden');G.state='play';});
@@ -406,7 +407,7 @@ async function efkInit(){
   efk={ctx,eff};
 }
 function efkPlay(id,pos,scale=1,speed=1){
-  if(!efk||!efk.eff[id])return null;
+  if(NOFX||!efk||!efk.eff[id])return null;
   const h=efk.ctx.play(efk.eff[id],pos.x,pos.y,pos.z);
   if(scale!==1)h.setScale(scale,scale,scale);
   const sp=speed/FXSLOW; // FXSLOW는 캡처용 수명 배율(외형 불변)
@@ -424,7 +425,7 @@ function tick(now){
   cam.lookAt(G.squad?G.squad.position.x*0.3:0,0,(G.squad?G.squad.position.z:0)-6);
   if(G.defLineMesh)G.defLineMesh.position.set(0,0.035,(G.squad?G.squad.position.z:0)+CFG.defLine);
   renderer.render(scene,cam);
-  if(efk){ // Effekseer 효과를 three 위에 같은 카메라로 그림
+  if(efk&&!NOFX){ // Effekseer 효과를 three 위에 같은 카메라로 그림
     efk.ctx.update(dt*60);
     const gl=renderer.getContext();
     efk.ctx.setProjectionMatrix(cam.projectionMatrix.elements);
@@ -492,7 +493,7 @@ function update(dt){
     const d=tp.clone().sub(p.mesh.position);const dist=d.length();
     const step=p.speed*dt;
     if(dist<=step+0.15){
-      efkPlay(p.hitEfk||'hit',tp,p.kind==='fire'?0.42:0.38,1.3);
+      efkPlay(p.hitEfk||'hit',tp,p.kind==='fire'?0.32:0.28,1.7);
       if(p.efkH){try{p.efkH.stop();}catch(e){}p.efkH=null;}
       damage(p.target,p.dmg);
       scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);
