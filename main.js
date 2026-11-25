@@ -282,13 +282,15 @@ function setStage(n){
 }
 
 // ---------- combat ----------
+function corridorK(){const gr=growth(G.cls,G.allies.length);return 0.08+Math.tan((gr.fan||0)*Math.PI/360);} // 사선대 기울기: 기본 0.08 + 성장 부채꼴 반각
+function corridorW(dz){return 0.6+Math.max(0,dz)*corridorK();} // 사선대 반폭 — 조준·발사·충돌·가이드 표시가 같은 기하에서 파생
 function squadTarget(c){ // 부대 중심 기준, 사선대 안 가장 가까운 대상(적·블록·감옥 동일 규칙)
   const sx=G.squad.position.x,sz=G.squad.position.z;
   let best=null,bd=1e9;
   const consider=(o,bias=0)=>{
     const p=o.obj.position;const dz=sz-p.z;
     if(p.z>sz-0.3)return;
-    const tol=0.6+dz*0.08;
+    const tol=corridorW(dz);
     if(Math.abs(p.x-sx)>tol)return;
     const d=Math.hypot(p.x-sx,dz)-bias;
     if(d<bd){bd=d;best=o;}
@@ -307,9 +309,11 @@ function fireVolley(c,n,gr){ // 일제사격 1회: gr.s갈래 부채꼴, 인원�
   const base=Math.atan2(tp.x-from.x,-(tp.z-from.z)); // 전방 0 기준 좌우 각
   const fan=(gr.fan||0)*Math.PI/180;
   const perDmg=c.dmg*G.dmgMul*gr.dmg*(0.7+0.3*n); // 인원 → 발당 피해 환산(초안 계수)
+  const dzT=Math.max(0.5,from.z-tp.z),angMax=Math.atan2(corridorW(dzT),dzT); // 탄 궤적이 사선대를 벗어나지 않게 발사각 제한
   for(let i=0;i<gr.s;i++){
     const off=gr.s>1?(i/(gr.s-1)-0.5)*fan:0;
-    spawnVolleyBolt(c,gr,from,base+off,perDmg,n);
+    let ang=base+off;if(ang>angMax)ang=angMax;if(ang<-angMax)ang=-angMax;
+    spawnVolleyBolt(c,gr,from,ang,perDmg,n);
   }
   if(gr.aux>0)for(let i=0;i<gr.aux;i++)spawnAuxBolt(c,from,perDmg*0.6);
   for(const u of G.allies)playOnce(u,c.anim,'Walking_A');
@@ -332,7 +336,7 @@ function spawnVolleyBolt(c,gr,from,ang,dmg,n){
 function spawnAuxBolt(c,from,dmg){ // 후드 특성: 유도 보조탄 — 적만 추적(블록·감옥 무시)
   let best=null,bd=1e9;const sz=G.squad.position.z,sx=G.squad.position.x;
   for(const e of G.enemies){if(e.hp<=0||e.deadT!=null)continue;const p=e.obj.position;if(p.z>sz-0.3)continue;
-    const tol=0.6+(sz-p.z)*0.08;if(Math.abs(p.x-sx)>tol)continue;
+    const tol=corridorW(sz-p.z);if(Math.abs(p.x-sx)>tol)continue;
     const d=Math.hypot(p.x-sx,sz-p.z);if(d<bd){bd=d;best=e;}}
   if(!best)return;
   const mesh=new THREE.Mesh(new THREE.ConeGeometry(0.06,0.5,5),new THREE.MeshBasicMaterial({color:0xc79fff})); // 가는 보라탄
@@ -578,13 +582,12 @@ function update(dt){
   G.squad.position.z-=CFG.fwdSpeed*dt;
   G.squad.position.x+=(G.x-G.squad.position.x)*Math.min(1,dt*10);
   const sq=G.squad.position;
-  { // 가이드: 현재 성장 단계 부채꼴 경계와 정확히 일치
-    const gr=growth(G.cls,G.allies.length);const half=(gr.fan||0)*Math.PI/360;
-    const len=CLASSES[G.cls].range*0.8;
+  { // 가이드: 사선대 경계 2줄 — corridorW와 같은 식(보이는 범위=실제 타격 범위)
+    const k=corridorK();const len=CLASSES[G.cls].range+3.5;const gAng=Math.atan(k);
     for(const [m,sgn] of [[G.guideL,-1],[G.guideR,1]]){
-      m.position.set(sq.x+Math.sin(half)*sgn*0+sgn*Math.sin(half)*len/2+sgn*(0.6+0.08*len/2)*Math.cos(half),0.06,sq.z-0.6-Math.cos(half)*len/2);
-      m.rotation.z=sgn*(half+Math.atan(0.08));
-      m.scale.y=len/11;}
+      m.position.set(sq.x+sgn*(0.6+k*len/2),0.06,sq.z-0.6-len/2);
+      m.rotation.z=-sgn*gAng;
+      m.scale.y=(len*Math.sqrt(1+k*k))/11;}
   }
   // stage spawning
   G.layout.forEach((e,i)=>{
@@ -647,6 +650,9 @@ function update(dt){
       const step=p.speed*dt;const px0=p.mesh.position.x,pz0=p.mesh.position.z;
       p.mesh.position.addScaledVector(p.vel,dt);p.traveled+=step;
       if(p.efkH){try{p.efkH.setLocation(p.mesh.position.x,p.mesh.position.y,p.mesh.position.z);}catch(e){p.efkH=null;}}
+      const dzB=(sq.z-0.6)-p.mesh.position.z; // 사선대 이탈 탄은 경계에서 소멸(표시 밖 판정 없음)
+      if(dzB>0&&Math.abs(p.mesh.position.x-sq.x)>corridorW(dzB)+0.05){G.statX++;if(p.efkH){try{p.efkH.stop();}catch(e){}p.efkH=null;}
+        scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);continue;}
       const ux=p.vel.x/p.speed,uz=p.vel.z/p.speed; // 이동 선분 기준 최근접 판정(고속 관통 방지)
       let hit=null,bhd=1e9;
       const seg=(o,rad)=>{const ox=o.obj.position.x-px0,oz=o.obj.position.z-pz0;
@@ -674,6 +680,8 @@ function update(dt){
     const d=tp.clone().sub(p.mesh.position);const dist=d.length();
     const step=p.speed*dt;
     if(dist<=step+0.15){
+      const dzA=(sq.z-0.6)-p.mesh.position.z; // 유도탄도 같은 사선대 판정
+      if(dzA>0&&Math.abs(p.mesh.position.x-sq.x)>corridorW(dzA)+0.35){scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);continue;}
       if((p.owner.fxT||0)<=0){efkPlay(p.hitEfk||'hit',tp,p.owner.cfg.fxScale||0.4,p.owner.cfg.fxSpeed||1.4);p.owner.fxT=0.7;}
       if(p.efkH){try{p.efkH.stop();}catch(e){}p.efkH=null;}
       damage(p.target,p.dmg);
