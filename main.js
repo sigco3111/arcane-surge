@@ -63,12 +63,23 @@ const CFG={
 };
 const CLASSES={
   Knight:{u:'Knight.glb',s:0.47,dmg:6,cd:0.9,range:9.5,kind:'bolt',color:0xffe27a,hitEfk:'suzsword',fxScale:0.15,fxSpeed:2.2,anim:'1H_Melee_Attack_Stab',w:{slot:'handslotr',u:'weapons/spear_A.gltf'}},
-  Barbarian:{u:'Barbarian.glb',s:0.40,dmg:14,cd:1.25,range:2.6,kind:'cleave',color:0xff7a2a,hitEfk:'ember',fxScale:0.10,fxSpeed:1.9,anim:'2H_Melee_Attack_Spin'},
+  Barbarian:{u:'Barbarian.glb',s:0.40,dmg:14,cd:1.25,range:9.5,kind:'wave',color:0xff7a2a,hitEfk:'ember',fxScale:0.10,fxSpeed:1.9,anim:'2H_Melee_Attack_Spin'},
   Rogue:{u:'Rogue.glb',s:0.47,dmg:4,cd:0.55,range:10.5,kind:'shard',color:0x9fdcff,hitEfk:'cold',fxScale:0.15,fxSpeed:2.2,anim:'2H_Ranged_Shoot',w:{slot:'handslotl',u:'weapons/bow_A_withString.gltf'}},
   Mage:{u:'Mage.glb',s:0.38,dmg:9,cd:1.15,range:10.5,kind:'fire',color:0xff7a2a,hitEfk:'flame',fxScale:0.15,fxSpeed:2.4,anim:'Spellcast_Shoot',w:{slot:'handslotr',u:'weapons/wand.gltf'}},
 };
 CLASSES.Rogue_Hooded={...CLASSES.Rogue,u:'Rogue_Hooded.glb',color:0xc79fff,hitEfk:'aura',homing:true,fxScale:0.2}; // 특수 유닛만 유도 탄(사용자 결정 20:02)
-const START_SQUAD=['Knight','Barbarian','Rogue','Mage'];
+const START_SQUAD=['Knight','Knight','Knight','Knight']; // 통일 부대(사용자 07:36): 시작 나이트 4명
+// 매 인원 성장(시제품 수치 초안): [도달 인원, 변화] 누적 — 전 단계가 눈에 보이는 변화(탄 수/리듬/부채꼴/관통/폭/범위/특성)
+const GROWTH_DEF={s:1,burst:1,fan:0,pierce:3,rate:1,dmg:1,big:0,aoe:0,wave:0,waveW:1,knock:1,aux:0};
+const GROWTH={
+ Knight:[[4,{s:2}],[5,{burst:2}],[6,{s:3,fan:6}],[7,{pierce:4}],[8,{fan:9}],[9,{s:4}],[10,{big:1,dmg:1.3}],[11,{s:5}],[12,{pierce:6}],[13,{burst:3}],[14,{s:6}],[15,{pierce:99,dmg:1.6}],[16,{s:7}]],
+ Rogue:[[4,{burst:2}],[5,{rate:0.8}],[6,{s:2}],[7,{burst:3}],[8,{rate:0.68}],[9,{s:3,fan:8}],[10,{burst:4,rate:0.62,dmg:1.2}],[12,{pierce:5}],[13,{burst:5}],[14,{s:4,fan:10}],[15,{rate:0.4,dmg:1.3}],[16,{s:5,fan:10}]],
+ Mage:[[4,{aoe:0.5}],[5,{aoe:0.7}],[6,{s:2,fan:10}],[7,{aoe:0.9}],[9,{aoe:1.1}],[10,{pierce:2,dmg:1.3}],[11,{s:3,fan:14}],[12,{aoe:1.3}],[14,{s:4,fan:16}],[15,{aoe:1.5,dmg:1.4}],[16,{s:5,fan:18}]],
+ Barbarian:[[4,{wave:5}],[5,{waveW:1.3}],[6,{wave:6.5}],[7,{knock:2}],[8,{waveW:1.6}],[9,{wave:8}],[10,{burst:2,dmg:1.3}],[11,{waveW:1.9}],[12,{wave:10}],[13,{knock:3}],[14,{waveW:2.4}],[15,{wave:12,dmg:1.4}],[16,{burst:3}]],
+ Rogue_Hooded:[[4,{s:2}],[5,{burst:2}],[7,{s:3,fan:8}],[8,{rate:0.85}],[10,{aux:1}],[11,{s:4,fan:10}],[12,{aux:2}],[13,{rate:0.72}],[14,{s:5,fan:10}],[16,{aux:3}]],
+};
+function growth(cls,n){const g={...GROWTH_DEF};for(const [k,v] of (GROWTH[cls]||[]))if(n>=k)Object.assign(g,v);return g;}
+const CAPTIVE_CYCLE=['Mage','Rogue','Barbarian','Rogue_Hooded']; // 구출 감옥 순환(현재 병종 제외는 스폰 시 결정)
 const EXTRA_CYCLE=['Rogue_Hooded','Mage','Knight','Barbarian'];
 const CLS_KO={Knight:'나이트',Barbarian:'바바리안',Rogue:'로그',Mage:'메이지',Rogue_Hooded:'후드 로그'};
 const FOES={
@@ -80,6 +91,7 @@ const FOES={
 };
 let TS=parseFloat(new URLSearchParams(location.search).get('ts'))||1; // 테스트용 시간배율(전체 균일)
 window.__setTS=v=>{TS=v;}; // 시연: 실행 중 배율 변경 훅
+window.__convert=c=>convertSquad(c); // 시연: 전환 훅
 window.__boltDemo=(spd=6)=>{ // 시연: 실제 탄체 메시의 저속 비행 확인용(모양·궤적 전용)
   const mk=(kind,color,x,z)=>{const grp=new THREE.Group();let mesh;
     if(kind==='shard'){mesh=new THREE.Mesh(new THREE.ConeGeometry(0.09,1.8,6),new THREE.MeshBasicMaterial({color}));mesh.rotation.x=-Math.PI/2;}
@@ -99,7 +111,7 @@ const BOSS={u:'bosses/Mushnub_Evolved.gltf',hp:520,spd:1.9,s:0.95,rr:1.3,gltf:tr
 
 // ---------- state ----------
 const G={state:'title',stage:1,lives:CFG.lives,kills:0,level:1,dmgMul:1,
-  squad:null,allies:[],enemies:[],blocks:[],projs:[],stageZ0:0,spawned:new Set(),extra:0,waveGrps:{},
+  squad:null,cls:'Knight',allies:[],enemies:[],blocks:[],projs:[],stageZ0:0,spawned:new Set(),extra:0,waveGrps:{},vcd:0,burstLeft:0,burstT:0,fxT:0,combo:0,comboT:0,
   layout:[],boss:null,x:0};
 window.__game=G;
 Object.defineProperty(G,'fps',{get:()=>Math.round(fpsEMA)});
@@ -201,8 +213,8 @@ async function spawnFoe(type,x,z,isBoss=false,wave){
   if(wave!=null){ // 적 무리 머리 위에 남은 총체력 숫자 표시(상자 수치와 같은 의미: 소멸까지 필요한 총 대미지)
     const key=G.stage+':'+wave;
     let g=G.waveGrps[key];
-    if(!g){g={hp:0,members:new Set(),num:makeNumSprite(0)};g.num.sprite.position.set(x,2.9,z);scene.add(g.num.sprite);G.waveGrps[key]=g;}
-    g.members.add(unit);g.hp+=unit.maxHp;drawNum(g.num,Math.ceil(g.hp));
+    if(!g){g={hp:0,maxHp:0,members:new Set(),num:makeNumSprite(0)};g.num.sprite.position.set(x,2.9,z);scene.add(g.num.sprite);G.waveGrps[key]=g;}
+    g.members.add(unit);g.hp+=unit.maxHp;g.maxHp+=unit.maxHp;drawNum(g.num,Math.ceil(g.hp));
     unit.wave=key;unit.wgrp=g;}
   if(isBoss){G.boss=unit;unit.phase=0;}
   return unit;
@@ -212,8 +224,15 @@ async function spawnBlock(kind,x,z){
   const grp=new THREE.Group();grp.position.set(x,0,z);
   if(kind==='chest'){
     const g=await loadG(A+'env/chest_gold.glb');const r=g.scene.clone();r.scale.setScalar(0.45);grp.add(r);
-    const cls=EXTRA_CYCLE[G.extra%EXTRA_CYCLE.length];G.extra++;
+    const cls=G.cls; // 통일 부대: 상자는 현재 병종 대원 보충
     const tag=labelSprite(`대원 +1 ${CLS_KO[cls]}`,'#ffd966',2.9);tag.position.y=2.1;grp.add(tag);
+    grp.userData.rewardCls=cls;grp.userData.tag=tag;
+  }else if(kind==='captive'){
+    const cls=CAPTIVE_CYCLE[(G.stage+G.extra)%CAPTIVE_CYCLE.length];G.extra++;
+    const {root}=await makeModel(A+CLASSES[cls].u,CLASSES[cls].s);root.position.y=0.05;root.rotation.y=Math.PI;grp.add(root);
+    const cage=new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.55,1.5,10,1,true),new THREE.MeshBasicMaterial({color:CLASSES[cls].color,transparent:true,opacity:0.28,side:THREE.DoubleSide,depthWrite:false}));
+    cage.position.y=0.75;grp.add(cage);
+    const tag=labelSprite(`구출: ${CLS_KO[cls]}`,'#c9a2ff',2.9);tag.position.y=2.3;grp.add(tag);
     grp.userData.rewardCls=cls;grp.userData.tag=tag;
   }else{
     const cry=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.9,0.5),new THREE.MeshStandardMaterial({color:0x66e0ff,emissive:0x2288cc,emissiveIntensity:1.6,roughness:0.2}));
@@ -244,6 +263,7 @@ function stageLayout(n){
     L.push({dz:12,type:'chest',x:-1.5});
     L.push({dz:26,type:'crystal',x:-1.6});
     L.push({dz:38,type:'chest',x:1.6}); // 상자 2개/구간으로 보상 간격 축소
+    L.push({dz:50,type:'captive',x:n%2?1.7:-1.7}); // 구간당 감옥 1개, 통로 가장자리(회피 가능)
   }else{
     L.push({dz:8,type:'foe',foe:'Warrior',x:0.9,wave:0});
     L.push({dz:11,type:'foe',foe:'Minion',x:1.8,wave:0});
@@ -262,6 +282,62 @@ function setStage(n){
 }
 
 // ---------- combat ----------
+function squadTarget(c){ // 부대 중심 기준, 사선대 안 가장 가까운 대상(적·블록·감옥 동일 규칙)
+  const sx=G.squad.position.x,sz=G.squad.position.z;
+  let best=null,bd=1e9;
+  const consider=(o,bias=0)=>{
+    const p=o.obj.position;const dz=sz-p.z;
+    if(p.z>sz-0.3)return;
+    const tol=0.6+dz*0.08;
+    if(Math.abs(p.x-sx)>tol)return;
+    const d=Math.hypot(p.x-sx,dz)-bias;
+    if(d<bd){bd=d;best=o;}
+  };
+  for(const e of G.enemies)if(e.hp>0&&e.deadT==null)consider(e);
+  for(const b of G.blocks)if(b.hp>0)consider(b,1.5);
+  if(bd>c.range)return null;
+  return best;
+}
+function fireVolley(c,n,gr){ // 일제사격 1회: gr.s갈래 부채꼴, 인원은 발당 피해로 환산
+  const t=squadTarget(c);if(!t)return;
+  const sq=G.squad.position;
+  const from=new THREE.Vector3(sq.x,1.0,sq.z-0.6);
+  const tp=t.obj.position.clone();tp.y=0.8;
+  const base=Math.atan2(tp.x-from.x,-(tp.z-from.z)); // 전방 0 기준 좌우 각
+  const fan=(gr.fan||0)*Math.PI/180;
+  const perDmg=c.dmg*G.dmgMul*gr.dmg*(0.7+0.3*n); // 인원 → 발당 피해 환산(초안 계수)
+  for(let i=0;i<gr.s;i++){
+    const off=gr.s>1?(i/(gr.s-1)-0.5)*fan:0;
+    spawnVolleyBolt(c,gr,from,base+off,perDmg,n);
+  }
+  if(gr.aux>0)for(let i=0;i<gr.aux;i++)spawnAuxBolt(c,from,perDmg*0.6);
+  for(const u of G.allies)playOnce(u,c.anim,'Walking_A');
+}
+function spawnVolleyBolt(c,gr,from,ang,dmg,n){
+  const grp=new THREE.Group();let mesh;
+  if(c.kind==='fire'){mesh=new THREE.Mesh(new THREE.SphereGeometry(0.12,10,10),new THREE.MeshBasicMaterial({color:0xffe0a0}));grp.add(mesh);}
+  else if(c.kind==='wave'){mesh=new THREE.Mesh(new THREE.BoxGeometry(0.5*gr.waveW,0.7,0.35),new THREE.MeshBasicMaterial({color:c.color,transparent:true,opacity:0.75}));grp.add(mesh);}
+  else if(c.kind==='shard'){mesh=new THREE.Mesh(new THREE.ConeGeometry(0.1,0.55,6),new THREE.MeshBasicMaterial({color:c.color}));mesh.rotation.x=-Math.PI/2;grp.add(mesh);}
+  else{mesh=new THREE.Mesh(new THREE.OctahedronGeometry(0.16),new THREE.MeshBasicMaterial({color:c.color}));mesh.scale.set(0.7*(gr.big?1.7:1),0.7*(gr.big?1.7:1),1.8*(gr.big?1.4:1));grp.add(mesh);}
+  grp.position.copy(from);grp.rotation.y=ang;scene.add(grp);
+  const spd=c.kind==='wave'?26:PSPD;
+  const vel=new THREE.Vector3(Math.sin(ang),0,-Math.cos(ang)).multiplyScalar(spd);
+  const maxDist=c.kind==='wave'?(gr.wave||4):c.range+3.5;
+  const p={mesh:grp,target:null,owner:{cfg:c,fxT:0},dmg,speed:spd,kind:c.kind,color:c.color,hitEfk:c.hitEfk||'hit',
+    vel,maxDist,traveled:0,pierce:c.kind==='wave'?99:gr.pierce,hitSet:new Set(),aoe:gr.aoe||0,knock:c.kind==='wave'?gr.knock:1,waveRad:c.kind==='wave'?0.55*gr.waveW:0};
+  if(c.kind==='fire')p.efkH=efkPlay('fireball',from,0.30,1.0);
+  G.projs.push(p);
+}
+function spawnAuxBolt(c,from,dmg){ // 후드 특성: 유도 보조탄 — 적만 추적(블록·감옥 무시)
+  let best=null,bd=1e9;const sz=G.squad.position.z,sx=G.squad.position.x;
+  for(const e of G.enemies){if(e.hp<=0||e.deadT!=null)continue;const p=e.obj.position;if(p.z>sz-0.3)continue;
+    const tol=0.6+(sz-p.z)*0.08;if(Math.abs(p.x-sx)>tol)continue;
+    const d=Math.hypot(p.x-sx,sz-p.z);if(d<bd){bd=d;best=e;}}
+  if(!best)return;
+  const mesh=new THREE.Mesh(new THREE.ConeGeometry(0.06,0.5,5),new THREE.MeshBasicMaterial({color:0xc79fff})); // 가는 보라탄
+  mesh.rotation.x=-Math.PI/2;const grp=new THREE.Group();grp.add(mesh);grp.position.copy(from);scene.add(grp);
+  G.projs.push({mesh:grp,target:best,owner:{cfg:c,fxT:0},dmg,speed:PSPD*0.8,kind:'aux',color:0xc79fff,hitEfk:'aura'});
+}
 function nearestTarget(unit){
   const wp=unit.obj.getWorldPosition(new THREE.Vector3());
   let best=null,bd=1e9;
@@ -279,6 +355,17 @@ function nearestTarget(unit){
   for(const b of G.blocks)if(b.hp>0)consider(b,1.5); // 상자·수정도 적과 거리로 경쟁(약간 우대) — 파도가 촘촘해져도 부숨
   if(bd>unit.cfg.range)return null;
   return best;
+}
+async function convertSquad(cls){ // 통일 부대 전환: 진화 단계(인원 파생)·레벨·공격력 배율·생명 유지, 병종만 교체
+  if(G.cls===cls){if(G.allies.length<16)await spawnAlly(cls);return;}
+  G.cls=cls;
+  for(const p of [...G.projs]){if(p.efkH){try{p.efkH.stop();}catch(e){}}scene.remove(p.mesh);}G.projs.length=0; // 전환 시 기존 비행탄 제거
+  const n=Math.min(16,G.allies.length+1); // 구출: 전환 + 대원 1명
+  for(const u of G.allies){G.squad.remove(u.obj);}
+  G.allies.length=0;
+  for(let i=0;i<n;i++)await spawnAlly(cls);
+  {const rp=ring(CLASSES[cls].color,1.6,0.8);rp.position.set(G.squad.position.x,0.12,G.squad.position.z);addFx(rp,0.8);}
+  const l=labelSprite(CLS_KO[cls]+' 부대!','#ffffff',2.8);l.position.set(G.squad.position.x,2.8,G.squad.position.z);addFx(l,1.6);
 }
 function fireBolt(unit,target){
   const c=unit.cfg;
@@ -306,9 +393,10 @@ function cleave(unit,target){
 }
 function damage(t,d){
   t.hp-=d;t.hitT=0.12;
-  if(t.wgrp){const d2=Math.min(d,t.wgrp.hp);t.wgrp.hp=Math.max(0,t.wgrp.hp-d);drawNum(t.wgrp.num,Math.ceil(t.wgrp.hp),NUMFX>=2?'#ffb02e':null); // 무리 수치도 함께 감소
-    t.wgrp.num.sprite.scale.set(1.875,1.875,1);t.wgrp.num.flash=NUMFX>=2?0.28:0;
-    if(NUMFX>=3&&d2>0){const lp=t.wgrp.num.sprite.position;const l=labelSprite('-'+Math.round(d2),'#ff8a5c',1.5);l.position.set(lp.x+0.9,lp.y+0.5,lp.z);addFx(l,0.7);}}
+  if(t.wgrp){const d2=Math.min(d,t.wgrp.hp);t.wgrp.hp=Math.max(0,t.wgrp.hp-d);
+    const big=d2>=t.wgrp.maxHp*0.15; // 대형 피해(무리 총체력 15%+): 빨간 플래시
+    drawNum(t.wgrp.num,Math.ceil(t.wgrp.hp),big?'#ff5a4a':'#ffb02e');
+    t.wgrp.num.sprite.scale.set(1.35*1.5,1.35*1.5,1);t.wgrp.num.flash=0.28;}
   if(t.kind==='foe')t.obj.position.z-=t.isBoss?0.06:0.2; // 타격 넉백
   if(t.hpFg){const f=Math.max(0,t.hp/t.maxHp);t.hpFg.scale.x=1.06*f;t.hpFg.position.x=-(1-f)*0.53;}
   if(t.hpNum){drawNum(t.hpNum,Math.max(0,Math.ceil(t.hp))); // 피격 시 잔여 수치 감소가 크게 보이도록
@@ -317,7 +405,9 @@ function damage(t,d){
 }
 function killUnit(t){
   if(t.kind==='foe'){
-    G.kills++;
+    G.kills++;G.combo++;G.comboT=4.0; // 콤보 창(시제품 4.0초, 계측 후 조정)
+    const TITLES={25:'연전연승',50:'파죽지세',100:'천하무적'};
+    if(TITLES[G.combo]){const l=labelSprite(TITLES[G.combo]+' ×'+G.combo,'#ffd966',3.6);l.position.set(G.squad.position.x,3.6,G.squad.position.z-6);addFx(l,1.6);}
     const dp=t.obj.position.clone();dp.y=0.9;efkPlay(t.isBoss?'featherbomb':'toonhit',dp,t.isBoss?0.40:0.30,1.5);
     if(G.kills%CFG.killsPerLevel===0){G.level++;G.dmgMul*=CFG.levelMul;
       {const rp=ring(0xffd966,1.2,0.8);rp.position.set(G.squad.position.x,0.12,G.squad.position.z);addFx(rp,0.6);} // 밝은 중심면 없는 얇은 고리 표시(비교빌드)
@@ -333,7 +423,10 @@ function killUnit(t){
     if(t.btype==='chest'){
       {const rp=ring(0xffd966,1.0,0.8);rp.position.set(p.x,0.12,p.z);addFx(rp,0.6);} // 밝은 중심면 없는 얇은 고리 표시(비교빌드)
       const l=labelSprite('대원 +1','#ffd966',2.2);l.position.copy(p).add(new THREE.Vector3(0,1,0));addFx(l,1.6);
-      spawnAlly(t.obj.userData.rewardCls||EXTRA_CYCLE[0]);
+      if(G.allies.length<16)spawnAlly(G.cls);
+      else{G.dmgMul*=1.1;const l2=labelSprite('단련: 공격력 +10%','#ffd966',2.2);l2.position.copy(p).add(new THREE.Vector3(0,2,0));addFx(l2,1.6);} // 인원 상한(시제품 16) 이후 보상 대체(제안값)
+    }else if(t.btype==='captive'){
+      convertSquad(t.obj.userData.rewardCls||'Knight'); // 전환: 비행탄 제거+전원 교체+1명은 convertSquad 내부
     }else{
       {const rp=ring(0x9fe8ff,1.0,0.8);rp.position.set(p.x,0.12,p.z);addFx(rp,0.6);} // 밝은 중심면 없는 얇은 고리 표시(비교빌드)
       G.dmgMul*=1.2;
@@ -384,15 +477,19 @@ async function init(){
   await buildMeadow();
   G.squad=new THREE.Group();scene.add(G.squad);
   G.squad.position.set(0,0,0);
+  { // 타격 범위 가이드: 바깥 경계 2줄(옅게) — 보이는 경계=실제 타격 범위
+    const mkG=()=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(0.07,11),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.10,depthWrite:false}));
+      m.rotation.x=-Math.PI/2;scene.add(m);return m;};
+    G.guideL=mkG();G.guideR=mkG();}
   for(const c of START_SQUAD)await spawnAlly(c);
   const stg=parseInt(new URLSearchParams(location.search).get('stage'))||1; // 테스트용 구간 건너뛰기
   if(stg>1){
-    for(let i=0;i<3;i++)await spawnAlly(EXTRA_CYCLE[i%EXTRA_CYCLE.length]);G.extra=3;
+    for(let i=0;i<3;i++)await spawnAlly(G.cls);G.extra=3;
     G.dmgMul=2.0;G.level=6;G.kills=40;
     G.squad.position.z=-CFG.stageLen*(stg-1);
   }
   const squadN=parseInt(new URLSearchParams(location.search).get('squad'))||0; // 테스트용 대원 수 고정(12명 동일조건 검증)
-  while(squadN>0&&G.allies.length<squadN){await spawnAlly(EXTRA_CYCLE[G.extra%EXTRA_CYCLE.length]);G.extra++;}
+  while(squadN>0&&G.allies.length<squadN){await spawnAlly(G.cls);G.extra++;}
   if(WEAK)G.dmgMul=0.05;
   setStage(stg);
   try{await efkInit();}catch(e){console.warn('effekseer off:',e.message);efk=null;}
@@ -479,6 +576,14 @@ function update(dt){
   G.squad.position.z-=CFG.fwdSpeed*dt;
   G.squad.position.x+=(G.x-G.squad.position.x)*Math.min(1,dt*10);
   const sq=G.squad.position;
+  { // 가이드: 현재 성장 단계 부채꼴 경계와 정확히 일치
+    const gr=growth(G.cls,G.allies.length);const half=(gr.fan||0)*Math.PI/360;
+    const len=CLASSES[G.cls].range*0.8;
+    for(const [m,sgn] of [[G.guideL,-1],[G.guideR,1]]){
+      m.position.set(sq.x+Math.sin(half)*sgn*0+sgn*Math.sin(half)*len/2+sgn*(0.6+0.08*len/2)*Math.cos(half),0.06,sq.z-0.6-Math.cos(half)*len/2);
+      m.rotation.z=sgn*(half+Math.atan(0.08));
+      m.scale.y=len/11;}
+  }
   // stage spawning
   G.layout.forEach((e,i)=>{
     if(G.spawned.has(i))return;
@@ -491,13 +596,17 @@ function update(dt){
   // stage clear
   const ahead2=G.stage<5 && sq.z<G.stageZ0-CFG.stageLen+18;
   if(ahead2)setStage(G.stage+1); // 경계 전에 다음 구역 생성 — 잔적 정리와 다음 파도가 겹쳐 공백 제거
-  // allies
-  for(const u of G.allies){
-    u.mixer.update(dt);
-    u.cd-=dt;u.fxT=Math.max(0,(u.fxT||0)-dt);
-    if(u.cd<=0){const t=nearestTarget(u);
-      if(t){u.cfg.kind==='cleave'?cleave(u,t):fireBolt(u,t);u.cd=Math.max(u.cd+u.cfg.cd,-0.3);}} // cd 남은 시간 이월(저프레임 공격속도 손실 방지, 최대 1회분)
-  }
+  // allies: 통일 부대 일제사격 — 탄 수/패턴은 성장 단계, 인원은 탄 1발 피해로 환산(설계 v2, 수치 초안)
+  for(const u of G.allies)u.mixer.update(dt);
+  G.fxT=Math.max(0,G.fxT-dt);
+  const c=CLASSES[G.cls],n=G.allies.length,gr=growth(G.cls,n);
+  if(G.burstLeft>0){G.burstT-=dt;if(G.burstT<=0){fireVolley(c,n,gr);G.burstLeft--;G.burstT=0.09;}}
+  else{G.vcd-=dt;
+    if(G.vcd<=0&&squadTarget(c)){fireVolley(c,n,gr);if(gr.burst>1){G.burstLeft=gr.burst-1;G.burstT=0.09;}
+      G.vcd=Math.max(0.15,c.cd*gr.rate);}}
+  // 콤보 창
+  if(G.comboT>0){G.comboT-=dt;
+    if(G.comboT<=0){if(G.combo>=10){const l=labelSprite('연속 처치 ×'+G.combo+' 종료','#aab2bd',2.4);l.position.set(G.squad.position.x,3.1,G.squad.position.z-6);addFx(l,1.2);}G.combo=0;}}
   // foes
   for(const e of [...G.enemies]){
     e.mixer.update(dt);
@@ -541,11 +650,16 @@ function update(dt){
       const seg=(o,rad)=>{const ox=o.obj.position.x-px0,oz=o.obj.position.z-pz0;
         const t=Math.max(0,Math.min(step,ox*ux+oz*uz));const dd=Math.hypot(ox-ux*t,oz-uz*t);
         if(dd<rad&&dd<bhd){bhd=dd;hit=o;}};
-      for(const e of G.enemies)if(e.hp>0&&e.deadT==null&&!p.hitSet.has(e))seg(e,0.6);
-      if(!hit)for(const b of G.blocks)if(b.hp>0)seg(b,0.7);
+      for(const e of G.enemies)if(e.hp>0&&e.deadT==null&&!p.hitSet.has(e))seg(e,p.waveRad||0.6);
+      if(!hit)for(const b of G.blocks)if(b.hp>0)seg(b,p.waveRad?p.waveRad+0.1:0.7);
       if(hit){const hp2=hit.obj.position.clone();hp2.y=0.8;
-        if((p.owner.fxT||0)<=0){efkPlay(p.hitEfk||'hit',hp2,p.owner.cfg.fxScale||0.4,p.owner.cfg.fxSpeed||1.4);p.owner.fxT=0.7;}
+        if(G.fxT<=0){efkPlay(p.hitEfk||'hit',hp2,p.owner.cfg.fxScale||0.4,p.owner.cfg.fxSpeed||1.4);G.fxT=0.25;}
+        if(p.knock>1&&hit.kind==='foe')hit.obj.position.z-=0.2*(p.knock-1); // 충격파 넉백(보임이 성장 체감)
         damage(hit,p.dmg);
+        if(p.aoe>0){ // 메이지 폭발: 링=실제 피해 영역
+          const ar=p.aoe;const rm=ring(0xff9a4a,ar,0.55);rm.position.set(hp2.x,0.1,hp2.z);addFx(rm,0.3);
+          for(const e2 of G.enemies){if(e2===hit||e2.hp<=0||e2.deadT!=null)continue;
+            if(Math.hypot(e2.obj.position.x-hp2.x,e2.obj.position.z-hp2.z)<=ar)damage(e2,p.dmg*0.5);}}
         if(hit.kind==='block'){if(p.efkH){try{p.efkH.stop();}catch(e){}p.efkH=null;}scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);continue;} // 블록은 탄을 막음
         p.hitSet.add(hit);p.pierce--;
         if(p.pierce<=0){if(p.efkH){try{p.efkH.stop();}catch(e){}p.efkH=null;}scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);continue;}}
@@ -573,6 +687,10 @@ function update(dt){
   // HUD
   $('hearts').textContent='♥'.repeat(Math.max(0,G.lives))+'♡'.repeat(Math.max(0,CFG.lives-G.lives));
   $('squadN').textContent=G.allies.length;
+  {const cb=$('combo');
+    if(G.combo>=10){cb.style.display='block';cb.textContent='×'+G.combo+' 연속 처치';
+      cb.style.color=G.combo>=100?'#ffd966':G.combo>=50?'#ff7a4a':G.combo>=25?'#ffb02e':'#ffffff';}
+    else cb.style.display='none';}
   $('lv').textContent=G.level;
   $('kills').textContent=G.kills;
   $('fps').textContent=Math.round(fpsEMA)+' fps · 초안';
