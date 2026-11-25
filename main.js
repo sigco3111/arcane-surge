@@ -88,7 +88,7 @@ const BOSS={u:'bosses/Mushnub_Evolved.gltf',hp:520,spd:1.9,s:0.95,rr:1.3,gltf:tr
 
 // ---------- state ----------
 const G={state:'title',stage:1,lives:CFG.lives,kills:0,level:1,dmgMul:1,
-  squad:null,allies:[],enemies:[],blocks:[],projs:[],stageZ0:0,spawned:new Set(),extra:0,
+  squad:null,allies:[],enemies:[],blocks:[],projs:[],stageZ0:0,spawned:new Set(),extra:0,waveGrps:{},
   layout:[],boss:null,x:0};
 window.__game=G;
 Object.defineProperty(G,'fps',{get:()=>Math.round(fpsEMA)});
@@ -170,7 +170,7 @@ function layoutSquad(){ // 뭉친 대형: 황금각 나선 배치, 인원이 늘
   });
 }
 
-async function spawnFoe(type,x,z,isBoss=false){
+async function spawnFoe(type,x,z,isBoss=false,wave){
   const f=isBoss?BOSS:FOES[type];
   const hscale=1.28**(G.stage-1); // 원작 tide hs=1.3^(단계-1) 참고: 진행할수록 적 체력 증가
   const sscale=isBoss?1:Math.min(1.5,1+0.07*(G.stage-1)); // 원작 참고: 단계가 갈수록 적 이동 가속
@@ -187,6 +187,12 @@ async function spawnFoe(type,x,z,isBoss=false){
   const fg=new THREE.Sprite(new THREE.SpriteMaterial({color:0xff4444,depthWrite:false}));fg.scale.set(1.06,0.09,1);
   const hy=isBoss?2.6:1.55;bg.position.y=hy;fg.position.y=hy;root.add(bg,fg);unit.hpFg=fg;unit.hpBg=bg;
   scene.add(root);G.enemies.push(unit);
+  if(wave!=null){ // 적 무리 머리 위에 남은 총체력 숫자 표시(상자 수치와 같은 의미: 소멸까지 필요한 총 대미지)
+    const key=G.stage+':'+wave;
+    let g=G.waveGrps[key];
+    if(!g){g={hp:0,members:new Set(),num:makeNumSprite(0)};g.num.sprite.position.set(x,2.9,z);scene.add(g.num.sprite);G.waveGrps[key]=g;}
+    g.members.add(unit);g.hp+=unit.maxHp;drawNum(g.num,Math.ceil(g.hp));
+    unit.wave=key;unit.wgrp=g;}
   if(isBoss){G.boss=unit;unit.phase=0;}
   return unit;
 }
@@ -221,20 +227,20 @@ function stageLayout(n){
       const cx=[-1.4,1.6,-0.6,1.2,-1.8,0.9,-1.2,1.7][w%8]; // 원작처럼 파도가 통로 이곳저곳에 뭉쳐 나옴 — 가만히 서 있으면 맞지 않는 파도가 생김
       for(let i=0;i<cnt;i++){
         const t=foeTypes[(w+i+n)%4];
-        L.push({dz:dz+ (i%2)*1.6, type:'foe',foe:t,x:cx+((i*47)%10)/10*1.4-0.7});
+        L.push({dz:dz+ (i%2)*1.6, type:'foe',foe:t,x:cx+((i*47)%10)/10*1.4-0.7,wave:w});
       }
     });
     L.push({dz:12,type:'chest',x:-1.5});
     L.push({dz:26,type:'crystal',x:-1.6});
     L.push({dz:38,type:'chest',x:1.6}); // 상자 2개/구간으로 보상 간격 축소
   }else{
-    L.push({dz:8,type:'foe',foe:'Warrior',x:0.9});
-    L.push({dz:11,type:'foe',foe:'Minion',x:1.8});
-    L.push({dz:15,type:'foe',foe:'Rogue',x:1.2});
-    L.push({dz:19,type:'foe',foe:'Minion',x:0.6});
-    L.push({dz:21,type:'foe',foe:'Mage',x:1.7});
-    L.push({dz:23,type:'foe',foe:'Minion',x:0.8});
-    L.push({dz:25,type:'boss',x:0});
+    L.push({dz:8,type:'foe',foe:'Warrior',x:0.9,wave:0});
+    L.push({dz:11,type:'foe',foe:'Minion',x:1.8,wave:0});
+    L.push({dz:15,type:'foe',foe:'Rogue',x:1.2,wave:1});
+    L.push({dz:19,type:'foe',foe:'Minion',x:0.6,wave:1});
+    L.push({dz:21,type:'foe',foe:'Mage',x:1.7,wave:2});
+    L.push({dz:23,type:'foe',foe:'Minion',x:0.8,wave:2});
+    L.push({dz:25,type:'boss',x:0,wave:'boss'});
   }
   L.forEach(e=>e.z=z0-e.dz);
   return L;
@@ -251,7 +257,10 @@ function nearestTarget(unit){
   const consider=(o,bias=0)=>{
     const p=o.obj.position;const dz=wp.z-p.z; // ahead of ally means p.z < wp.z
     if(p.z>wp.z-0.3)return; // 전방의 적만 자동 공격(보스 포함)
-    if(Math.abs(p.x-wp.x)>2.2)return; // 좌우로 정렬된 대상만 교전 — 부대 위치 선정이 중요해지도록(사용자 결정 20:02)
+    const cleave=unit.cfg.kind==='cleave';
+    const tol=cleave?1.1:0.6+dz*0.08; // 직사화기: 전방 좁은 사선대 안의 대상만 교전(사용자 결정 11-26 06:03)
+    const laneX=cleave?wp.x:G.squad.position.x; // 원거리는 부대 중심 기준 사선대 — 인원이 늘어도 대형 너비가 아니라 부대 위치가 사격 레인을 결정
+    if(Math.abs(p.x-laneX)>tol)return;
     const d=Math.hypot(p.x-wp.x,dz)-bias;
     if(d<bd){bd=d;best=o;}
   };
@@ -286,6 +295,8 @@ function cleave(unit,target){
 }
 function damage(t,d){
   t.hp-=d;t.hitT=0.12;
+  if(t.wgrp){t.wgrp.hp=Math.max(0,t.wgrp.hp-d);drawNum(t.wgrp.num,Math.ceil(t.wgrp.hp)); // 무리 수치도 함께 감소
+    t.wgrp.num.sprite.scale.set(1.875,1.875,1);}
   if(t.kind==='foe')t.obj.position.z-=t.isBoss?0.06:0.2; // 타격 넉백
   if(t.hpFg){const f=Math.max(0,t.hp/t.maxHp);t.hpFg.scale.x=1.06*f;t.hpFg.position.x=-(1-f)*0.53;}
   if(t.hpNum){drawNum(t.hpNum,Math.max(0,Math.ceil(t.hp))); // 피격 시 잔여 수치 감소가 크게 보이도록
@@ -302,6 +313,7 @@ function killUnit(t){
     if(t.acts.Death_A||t.acts.Death){const d=t.acts.Death_A||t.acts.Death;
       Object.values(t.acts).forEach(a=>a.stop());d.reset();d.setLoop(THREE.LoopOnce,1);d.clampWhenFinished=true;d.play();}
     if(t.hpFg){t.obj.remove(t.hpFg);t.hpFg=null;}if(t.hpBg){t.obj.remove(t.hpBg);t.hpBg=null;}
+    if(t.wgrp){t.wgrp.members.delete(t);if(t.wgrp.members.size===0){scene.remove(t.wgrp.num.sprite);delete G.waveGrps[t.wave];}}
     t.deadT=1.1;
     if(t.isBoss){G.bossDead=true;bossPhase(t);}
   }else if(t.kind==='block'){
@@ -458,8 +470,8 @@ function update(dt){
     if(G.spawned.has(i))return;
     if(e.z<sq.z-24)return; // 파도가 시간차를 두고 도래하도록 스폰 예지 거리 조정(한꺼번에 몰려와 순삭되는 것 방지)
     G.spawned.add(i);
-    if(e.type==='foe'){if(!BOSSONLY)spawnFoe(e.foe,e.x,e.z);}
-    else if(e.type==='boss')spawnFoe(null,e.x,e.z,true);
+    if(e.type==='foe'){if(!BOSSONLY)spawnFoe(e.foe,e.x,e.z,false,e.wave);}
+    else if(e.type==='boss')spawnFoe(null,e.x,e.z,true,e.wave);
     else if(!BOSSONLY)spawnBlock(e.type,e.x,e.z);
   });
   // stage clear
@@ -484,12 +496,18 @@ function update(dt){
     if(e.obj.position.z>sq.z+CFG.defLine){ // 방어선 돌파
       if(e.isBoss){endGame(false);return;} // 보스 돌파는 즉시 패배
       scene.remove(e.obj);G.enemies.splice(G.enemies.indexOf(e),1);
+      if(e.wgrp){e.wgrp.members.delete(e);if(e.wgrp.members.size===0){scene.remove(e.wgrp.num.sprite);delete G.waveGrps[e.wave];}}
       G.lives--;
       const l=labelSprite('돌파!','#ff6666',1.8);l.position.set(e.obj.position.x,1.5,sq.z+1);addFx(l,1.2);
       if(G.lives<=0){endGame(false);return;}
     }
   }
   if(G.stage===5&&G.bossDead&&G.enemies.length===0){endGame(true);return;}
+  // wave group numbers: 무리 중심을 따라 이동 + 팝 애니메이션
+  for(const key in G.waveGrps){const g=G.waveGrps[key];
+    let sx=0,sz=0,n=0;g.members.forEach(m=>{if(m.hp>0){sx+=m.obj.position.x;sz+=m.obj.position.z;n++;}});
+    if(n)g.num.sprite.position.set(sx/n,2.9,sz/n-0.6);
+    const ws=g.num.sprite.scale.x+(1.5-g.num.sprite.scale.x)*Math.min(1,dt*10);g.num.sprite.scale.set(ws,ws,1);}
   // blocks hitT
   for(const b of [...G.blocks]){if(b.hitT>0)b.hitT-=dt;
     if(b.hpNum){const s=b.hpNum.sprite.scale.x+(1.5-b.hpNum.sprite.scale.x)*Math.min(1,dt*10);b.hpNum.sprite.scale.set(s,s,1);}
