@@ -379,6 +379,8 @@ async function init(){
     G.dmgMul=2.0;G.level=6;G.kills=40;
     G.squad.position.z=-CFG.stageLen*(stg-1);
   }
+  const squadN=parseInt(new URLSearchParams(location.search).get('squad'))||0; // 테스트용 대원 수 고정(12명 동일조건 검증)
+  while(squadN>0&&G.allies.length<squadN){await spawnAlly(EXTRA_CYCLE[G.extra%EXTRA_CYCLE.length]);G.extra++;}
   if(WEAK)G.dmgMul=0.05;
   setStage(stg);
   try{await efkInit();}catch(e){console.warn('effekseer off:',e.message);efk=null;}
