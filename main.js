@@ -110,7 +110,7 @@ const PSPD=DART?58:22; // 효과 청취 전용: id=경로,id=경로
 const BOSS={u:'bosses/Mushnub_Evolved.gltf',hp:520,spd:1.9,s:0.95,rr:1.3,gltf:true};
 
 // ---------- state ----------
-const G={state:'title',stage:1,lives:CFG.lives,kills:0,level:1,dmgMul:1,
+const G={state:'title',stage:1,lives:CFG.lives,kills:0,level:1,dmgMul:1,statV:0,statB:0,statH:0,statX:0,
   squad:null,cls:'Knight',allies:[],enemies:[],blocks:[],projs:[],stageZ0:0,spawned:new Set(),extra:0,waveGrps:{},vcd:0,burstLeft:0,burstT:0,fxT:0,combo:0,comboT:0,
   layout:[],boss:null,x:0};
 window.__game=G;
@@ -300,6 +300,7 @@ function squadTarget(c){ // 부대 중심 기준, 사선대 안 가장 가까운
 }
 function fireVolley(c,n,gr){ // 일제사격 1회: gr.s갈래 부채꼴, 인원은 발당 피해로 환산
   const t=squadTarget(c);if(!t)return;
+  G.statV++;
   const sq=G.squad.position;
   const from=new THREE.Vector3(sq.x,1.0,sq.z-0.6);
   const tp=t.obj.position.clone();tp.y=0.8;
@@ -326,7 +327,7 @@ function spawnVolleyBolt(c,gr,from,ang,dmg,n){
   const p={mesh:grp,target:null,owner:{cfg:c,fxT:0},dmg,speed:spd,kind:c.kind,color:c.color,hitEfk:c.hitEfk||'hit',
     vel,maxDist,traveled:0,pierce:c.kind==='wave'?99:gr.pierce,hitSet:new Set(),aoe:gr.aoe||0,knock:c.kind==='wave'?gr.knock:1,waveRad:c.kind==='wave'?0.55*gr.waveW:0};
   if(c.kind==='fire')p.efkH=efkPlay('fireball',from,0.30,1.0);
-  G.projs.push(p);
+  G.projs.push(p);G.statB++;
 }
 function spawnAuxBolt(c,from,dmg){ // 후드 특성: 유도 보조탄 — 적만 추적(블록·감옥 무시)
   let best=null,bd=1e9;const sz=G.squad.position.z,sx=G.squad.position.x;
@@ -392,8 +393,8 @@ function cleave(unit,target){
   playOnce(unit,unit.cfg.anim,'Walking_A');
 }
 function damage(t,d){
-  t.hp-=d;t.hitT=0.12;
-  if(t.wgrp){const d2=Math.min(d,t.wgrp.hp);t.wgrp.hp=Math.max(0,t.wgrp.hp-d);
+  const hpB=t.hp;t.hp-=d;t.hitT=0.12;
+  if(t.wgrp){const d2=Math.min(d,Math.max(0,hpB),t.wgrp.hp);t.wgrp.hp=Math.max(0,t.wgrp.hp-d2); // 오버킬 초과분이 무리 수치를 먼저 0으로 만들던 버그 수정
     const big=d2>=t.wgrp.maxHp*0.15; // 대형 피해(무리 총체력 15%+): 빨간 플래시
     drawNum(t.wgrp.num,Math.ceil(t.wgrp.hp),big?'#ff5a4a':'#ffb02e');
     t.wgrp.num.sprite.scale.set(1.35*1.5,1.35*1.5,1);t.wgrp.num.flash=0.28;}
@@ -572,6 +573,7 @@ function tick(now){
 }
 function update(dt){
   dt*=TS;
+  G.gtime=(G.gtime||0)+dt; // 계측용 게임 시간(TS 적용 후)
   // advance (통로 진행은 보스전에도 멈추지 않음)
   G.squad.position.z-=CFG.fwdSpeed*dt;
   G.squad.position.x+=(G.x-G.squad.position.x)*Math.min(1,dt*10);
@@ -652,7 +654,7 @@ function update(dt){
         if(dd<rad&&dd<bhd){bhd=dd;hit=o;}};
       for(const e of G.enemies)if(e.hp>0&&e.deadT==null&&!p.hitSet.has(e))seg(e,p.waveRad||0.6);
       if(!hit)for(const b of G.blocks)if(b.hp>0)seg(b,p.waveRad?p.waveRad+0.1:0.7);
-      if(hit){const hp2=hit.obj.position.clone();hp2.y=0.8;
+      if(hit){G.statH++;const hp2=hit.obj.position.clone();hp2.y=0.8;
         if(G.fxT<=0){efkPlay(p.hitEfk||'hit',hp2,p.owner.cfg.fxScale||0.4,p.owner.cfg.fxSpeed||1.4);G.fxT=0.25;}
         if(p.knock>1&&hit.kind==='foe')hit.obj.position.z-=0.2*(p.knock-1); // 충격파 넉백(보임이 성장 체감)
         damage(hit,p.dmg);
@@ -663,7 +665,7 @@ function update(dt){
         if(hit.kind==='block'){if(p.efkH){try{p.efkH.stop();}catch(e){}p.efkH=null;}scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);continue;} // 블록은 탄을 막음
         p.hitSet.add(hit);p.pierce--;
         if(p.pierce<=0){if(p.efkH){try{p.efkH.stop();}catch(e){}p.efkH=null;}scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);continue;}}
-      if(p.traveled>=p.maxDist){if(p.efkH){try{p.efkH.stop();}catch(e){}p.efkH=null;}
+      if(p.traveled>=p.maxDist){G.statX++;if(p.efkH){try{p.efkH.stop();}catch(e){}p.efkH=null;}
         scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);}
       continue;
     }
