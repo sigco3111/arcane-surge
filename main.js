@@ -44,15 +44,20 @@ function labelSprite(text,color='#ffffff',w=2.2,ttl=1.4){
 const fx=[];
 function addFx(obj,ttl,fade=true){scene.add(obj);fx.push({obj,t:ttl*FXSLOW,ttl:ttl*FXSLOW,fade});}
 function spark(pos,color,size=1.6,ttl=0.35){const g=glow(color,size,1);g.position.copy(pos);addFx(g,ttl);}
+function burst(pos,color,n=14,speed=3.2,ttl=0.45,size=0.55){ // 타격 파편
+  for(let i=0;i<n;i++){const g=glow(color,size*(0.6+Math.random()*0.8),0.95);g.position.copy(pos);
+    const a=Math.random()*Math.PI*2,e=Math.random()*Math.PI-Math.PI/2;
+    const v=new THREE.Vector3(Math.cos(a)*Math.cos(e),Math.sin(e)+0.6,Math.sin(a)*Math.cos(e)).normalize().multiplyScalar(speed*(0.5+Math.random()*0.8));
+    scene.add(g);fx.push({obj:g,t:ttl,ttl,fade:true,vel:v,grav:-6});}}
 function lightningFx(a,b,color=0xffee55){
-  const grp=new THREE.Group();const N=6;
+  const grp=new THREE.Group();const N=9;
   for(let i=0;i<N;i++){const f0=i/N,f1=(i+1)/N;
     const p0=new THREE.Vector3().lerpVectors(a,b,f0);const p1=new THREE.Vector3().lerpVectors(a,b,f1);
-    if(i>0&&i<N-1){p0.x+=Math.sin(i*12.9)*0.3;p0.y+=Math.cos(i*7.7)*0.2;}
+    if(i>0&&i<N-1){p0.x+=Math.sin(i*12.9)*0.45;p0.y+=Math.cos(i*7.7)*0.3;p0.z+=Math.sin(i*5.3)*0.2;}
     const len=p0.distanceTo(p1);
-    const m=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.06,len),new THREE.MeshBasicMaterial({color:0xfff8cc}));
+    const m=new THREE.Mesh(new THREE.BoxGeometry(0.11,0.11,len),new THREE.MeshBasicMaterial({color:0xfff8cc}));
     m.position.copy(p0).lerp(p1,0.5);m.lookAt(p1);grp.add(m);}
-  const h=glow(color,2.2,1);h.position.copy(b);grp.add(h);
+  const h=glow(color,3.4,1);h.position.copy(b);grp.add(h);
   addFx(grp,0.28);}
 
 // ---------- config (수치 전부 초안) ----------
@@ -256,29 +261,34 @@ function nearestTarget(unit){
 function fireBolt(unit,target){
   const c=unit.cfg;
   const from=unit.obj.getWorldPosition(new THREE.Vector3());from.y=1.0;
-  let mesh;
-  if(c.kind==='shard'){mesh=new THREE.Mesh(new THREE.ConeGeometry(0.09,0.5,6),new THREE.MeshStandardMaterial({color:0x9fdcff,emissive:0x2288cc,emissiveIntensity:1.2}));
-    mesh.rotation.x=-Math.PI/2;}
-  else{mesh=glow(c.color,c.kind==='fire'?0.9:0.7,1);
-    if(c.kind==='fire'){const core=new THREE.Mesh(new THREE.SphereGeometry(0.12,10,10),new THREE.MeshBasicMaterial({color:0xffe0a0}));mesh.add(core);}}
-  mesh.position.copy(from);scene.add(mesh);
-  G.projs.push({mesh,target,dmg:c.dmg*G.dmgMul,speed:13,kind:c.kind});
+  let mesh;const grp=new THREE.Group();
+  if(c.kind==='shard'){mesh=new THREE.Mesh(new THREE.ConeGeometry(0.1,0.55,6),new THREE.MeshBasicMaterial({color:0xd8f4ff}));
+    mesh.rotation.x=-Math.PI/2;grp.add(mesh);const gl=glow(0x66ccff,1.0,0.95);grp.add(gl);}
+  else if(c.kind==='fire'){mesh=new THREE.Mesh(new THREE.SphereGeometry(0.13,10,10),new THREE.MeshBasicMaterial({color:0xffe0a0}));grp.add(mesh);
+    const gl=glow(0xff7a2a,1.5,0.95);grp.add(gl);const gl2=glow(0xffcc44,0.7,0.9);grp.add(gl2);}
+  else{mesh=new THREE.Mesh(new THREE.OctahedronGeometry(0.16),new THREE.MeshBasicMaterial({color:0xfff6c0}));mesh.scale.set(0.7,0.7,1.8);grp.add(mesh);
+    const gl=glow(0xffe27a,1.25,0.95);grp.add(gl);}
+  grp.position.copy(from);scene.add(grp);
+  G.projs.push({mesh:grp,target,dmg:c.dmg*G.dmgMul,speed:13,kind:c.kind,color:c.color});
   playOnce(unit,c.anim,'Walking_A');
 }
 function cleave(unit,target){
   const p=target.obj.position.clone();p.y=0.6;
-  spark(p,unit.cfg.color,2.4,0.3);
+  spark(p,unit.cfg.color,3.0,0.3);
+  burst(p,unit.cfg.color,16,4.0,0.45,0.6);
   damage(target,unit.cfg.dmg*G.dmgMul);
   playOnce(unit,unit.cfg.anim,'Walking_A');
 }
 function damage(t,d){
   t.hp-=d;t.hitT=0.12;
+  if(t.kind==='foe')t.obj.position.z-=t.isBoss?0.04:0.14; // 타격 넉백
   if(t.hpFg){const f=Math.max(0,t.hp/t.maxHp);t.hpFg.scale.x=1.06*f;t.hpFg.position.x=-(1-f)*0.53;}
   if(t.hp<=0&&t.kind!=='ally')killUnit(t);
 }
 function killUnit(t){
   if(t.kind==='foe'){
     G.kills++;G.gauge=Math.min(100,G.gauge+CFG.gaugePerKill);
+    const dp=t.obj.position.clone();dp.y=0.9;burst(dp,t.isBoss?0xffd9a0:0xfff0dd,t.isBoss?26:16,t.isBoss?5:4,0.6,0.7);
     if(G.kills%CFG.killsPerLevel===0){G.level++;G.dmgMul*=CFG.levelMul;
       const l=labelSprite('레벨 업!','#ffe27a',2.4);l.position.set(G.squad.position.x,2.6,G.squad.position.z-1);addFx(l,1.6);}
     if(t.acts.Death_A||t.acts.Death){const d=t.acts.Death_A||t.acts.Death;
@@ -320,6 +330,9 @@ function storm(){
     const p=t.obj.position.clone();p.y=0.8;
     const top=p.clone();top.y=9;
     lightningFx(top,p);
+    const p2=p.clone();p2.x+=0.35;const top2=top.clone();top2.x+=0.8;
+    lightningFx(top2,p2);
+    burst(p,0xffee55,10,3.6,0.4,0.5);
     damage(t,CFG.stormDmg);
   }
   const l=labelSprite('합성 마법!','#b37aff',2.8);l.position.set(G.squad.position.x,3.2,G.squad.position.z-2);addFx(l,1.6);
@@ -433,15 +446,20 @@ function update(dt){
     const d=tp.clone().sub(p.mesh.position);const dist=d.length();
     const step=p.speed*dt;
     if(dist<=step+0.15){
-      spark(tp,p.kind==='fire'?0xff7a2a:p.kind==='shard'?0x66ccff:0xffe27a,p.kind==='fire'?1.8:1.2);
+      const col=p.kind==='fire'?0xff7a2a:p.kind==='shard'?0x66ccff:0xffe27a;
+      spark(tp,col,p.kind==='fire'?2.2:1.5,0.3);
+      burst(tp,col,p.kind==='fire'?18:12,p.kind==='fire'?4.2:3.4,0.5,p.kind==='fire'?0.7:0.55);
       damage(p.target,p.dmg);
       scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);
-    }else p.mesh.position.addScaledVector(d.normalize(),step);
+    }else{p.mesh.position.addScaledVector(d.normalize(),step);
+      p.trailT=(p.trailT||0)-dt;
+      if(p.trailT<=0){p.trailT=0.05;const t=glow(p.color||0xffffff,0.55,0.55);t.position.copy(p.mesh.position);addFx(t,0.22);}}
   }
   // gauge storm
   if(G.gauge>=100){G.gauge=0;storm();}
   // fx
   for(const f of [...fx]){f.t-=dt;
+    if(f.vel){f.vel.y+=(f.grav||0)*dt;f.obj.position.addScaledVector(f.vel,dt);}
     if(f.fade&&f.obj.material)f.obj.material.opacity=Math.max(0,f.t/f.ttl);
     if(f.t<=0){scene.remove(f.obj);fx.splice(fx.indexOf(f),1);}}
   // HUD
