@@ -70,6 +70,7 @@ const CLASSES={
 CLASSES.Rogue_Hooded={...CLASSES.Rogue,u:'Rogue_Hooded.glb'};
 const START_SQUAD=['Knight','Barbarian','Rogue','Mage'];
 const EXTRA_CYCLE=['Rogue_Hooded','Mage','Knight','Barbarian'];
+const CLS_KO={Knight:'나이트',Barbarian:'바바리안',Rogue:'로그',Mage:'메이지',Rogue_Hooded:'후드 로그'};
 const FOES={
   Warrior:{u:'Skeleton_Warrior.glb',hp:26,spd:1.05,s:0.56,rr:0.6},
   Minion:{u:'Skeleton_Minion.glb',hp:16,spd:1.5,s:0.56,rr:0.5},
@@ -159,10 +160,13 @@ async function spawnAlly(clsName,slot){
   G.squad.add(root);G.allies.push(unit);
   layoutSquad();
 }
-function layoutSquad(){
-  const cols=[-0.95,0.95];
-  G.allies.forEach((u,i)=>{const r=Math.floor(i/2),cIdx=i%2;
-    u.obj.position.set(cols[cIdx],0,r*1.15);});
+function layoutSquad(){ // 뭉친 대형: 황금각 나선 배치, 인원이 늘어도 아래로 길어지지 않음
+  G.allies.forEach((u,i)=>{
+    if(i===0){u.obj.position.set(0,0,-0.35);return;} // 선두
+    const r=Math.min(1.5,0.62+0.42*Math.sqrt(i));
+    const a=i*2.399;
+    u.obj.position.set(Math.cos(a)*r,0,-0.35+Math.sin(a)*r*0.78);
+  });
 }
 
 async function spawnFoe(type,x,z,isBoss=false){
@@ -189,10 +193,14 @@ async function spawnBlock(kind,x,z){
   if(kind==='chest'){
     const g=await loadG(A+'env/chest_gold.glb');const r=g.scene.clone();r.scale.setScalar(0.45);grp.add(r);
     const gl=glow(0xffcc44,2.0,0.6);gl.position.y=0.55;grp.add(gl);
+    const cls=EXTRA_CYCLE[G.extra%EXTRA_CYCLE.length];G.extra++;
+    const tag=labelSprite(`대원 +1 ${CLS_KO[cls]}`,'#ffd966',2.9);tag.position.y=2.1;grp.add(tag);
+    grp.userData.rewardCls=cls;
   }else{
     const cry=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.9,0.5),new THREE.MeshStandardMaterial({color:0x66e0ff,emissive:0x2288cc,emissiveIntensity:1.6,roughness:0.2}));
     cry.position.y=0.55;cry.rotation.y=Math.PI/4;grp.add(cry);
     const gl=glow(0x66e0ff,2.1,0.6);gl.position.y=0.85;grp.add(gl);
+    const tag=labelSprite('공격력 +20%','#9fe8ff',2.6);tag.position.y=2.1;grp.add(tag);
   }
   grp.add(discShadow(0.5));
   const unit={kind:'block',btype:kind,hp:30,maxHp:30,obj:grp,hitT:0};
@@ -283,8 +291,7 @@ function killUnit(t){
     if(t.btype==='chest'){
       spark(p,0xffcc44,3,0.5);
       const l=labelSprite('대원 +1','#ffd966',2.2);l.position.copy(p).add(new THREE.Vector3(0,1,0));addFx(l,1.6);
-      const next=EXTRA_CYCLE[G.extra%EXTRA_CYCLE.length];G.extra++;
-      spawnAlly(next);
+      spawnAlly(t.obj.userData.rewardCls||EXTRA_CYCLE[0]);
     }else{
       spark(p,0x66e0ff,3,0.5);
       G.dmgMul*=1.2;G.gauge=Math.min(100,G.gauge+40);
@@ -338,7 +345,7 @@ async function init(){
   for(const c of START_SQUAD)await spawnAlly(c);
   const stg=parseInt(new URLSearchParams(location.search).get('stage'))||1; // 테스트용 구간 건너뛰기
   if(stg>1){
-    for(let i=0;i<3;i++)await spawnAlly(EXTRA_CYCLE[i%EXTRA_CYCLE.length]);
+    for(let i=0;i<3;i++)await spawnAlly(EXTRA_CYCLE[i%EXTRA_CYCLE.length]);G.extra=3;
     G.dmgMul=2.0;G.level=6;G.kills=40;
     G.squad.position.z=-CFG.stageLen*(stg-1);
   }
