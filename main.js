@@ -460,7 +460,7 @@ function update(dt){
     u.mixer.update(dt);
     u.cd-=dt;u.fxT=Math.max(0,(u.fxT||0)-dt);
     if(u.cd<=0){const t=nearestTarget(u);
-      if(t){u.cfg.kind==='cleave'?cleave(u,t):fireBolt(u,t);u.cd=u.cfg.cd;}}
+      if(t){u.cfg.kind==='cleave'?cleave(u,t):fireBolt(u,t);u.cd=Math.max(u.cd+u.cfg.cd,-0.3);}} // cd 남은 시간 이월(저프레임 공격속도 손실 방지, 최대 1회분)
   }
   // foes
   for(const e of [...G.enemies]){
