@@ -62,12 +62,12 @@ const CFG={
   stageLen:55,
 };
 const CLASSES={
-  Knight:{u:'Knight.glb',s:0.47,dmg:6,cd:0.9,range:9.5,kind:'bolt',color:0xffe27a,hitEfk:'holy',anim:'1H_Melee_Attack_Stab',w:{slot:'handslotr',u:'weapons/spear_A.gltf'}},
+  Knight:{u:'Knight.glb',s:0.47,dmg:6,cd:0.9,range:9.5,kind:'bolt',color:0xffe27a,hitEfk:'suzsword',anim:'1H_Melee_Attack_Stab',w:{slot:'handslotr',u:'weapons/spear_A.gltf'}},
   Barbarian:{u:'Barbarian.glb',s:0.40,dmg:14,cd:1.25,range:2.6,kind:'cleave',color:0xff7a2a,hitEfk:'ember',anim:'2H_Melee_Attack_Spin'},
-  Rogue:{u:'Rogue.glb',s:0.47,dmg:4,cd:0.55,range:10.5,kind:'shard',color:0x9fdcff,hitEfk:'toonhit',anim:'2H_Ranged_Shoot',w:{slot:'handslotl',u:'weapons/bow_A_withString.gltf'}},
-  Mage:{u:'Mage.glb',s:0.38,dmg:9,cd:1.15,range:10.5,kind:'fire',color:0xff7a2a,hitEfk:'fire',anim:'Spellcast_Shoot',w:{slot:'handslotr',u:'weapons/wand.gltf'}},
+  Rogue:{u:'Rogue.glb',s:0.47,dmg:4,cd:0.55,range:10.5,kind:'shard',color:0x9fdcff,hitEfk:'cold',anim:'2H_Ranged_Shoot',w:{slot:'handslotl',u:'weapons/bow_A_withString.gltf'}},
+  Mage:{u:'Mage.glb',s:0.38,dmg:9,cd:1.15,range:10.5,kind:'fire',color:0xff7a2a,hitEfk:'flame',anim:'Spellcast_Shoot',w:{slot:'handslotr',u:'weapons/wand.gltf'}},
 };
-CLASSES.Rogue_Hooded={...CLASSES.Rogue,u:'Rogue_Hooded.glb',color:0xc79fff,hitEfk:'lance'};
+CLASSES.Rogue_Hooded={...CLASSES.Rogue,u:'Rogue_Hooded.glb',color:0xc79fff,hitEfk:'herald'};
 const START_SQUAD=['Knight','Barbarian','Rogue','Mage'];
 const EXTRA_CYCLE=['Rogue_Hooded','Mage','Knight','Barbarian'];
 const CLS_KO={Knight:'나이트',Barbarian:'바바리안',Rogue:'로그',Mage:'메이지',Rogue_Hooded:'후드 로그'};
@@ -83,6 +83,7 @@ const WEAK=new URLSearchParams(location.search).has('weak'); // 패배 경로 �
 const BOSSONLY=new URLSearchParams(location.search).has('bossonly'); // 보스 돌파 경로 단독 검증용
 const FXSLOW=parseFloat(new URLSearchParams(location.search).get('fxslow'))||1; // 이펙트 수명 배율(캡처 전용, 외형 불변)
 const NOFX=new URLSearchParams(location.search).has('nofx'); // 로직 회귀 전용: 효과 재생/그리기 생략
+const FXLIST=new URLSearchParams(location.search).get('fxlist'); // 효과 청취 전용: id=경로,id=경로
 const BOSS={u:'bosses/Mushnub_Evolved.gltf',hp:260,spd:1.9,s:0.95,rr:1.3,gltf:true};
 
 // ---------- state ----------
@@ -262,14 +263,14 @@ function fireBolt(unit,target){
   else if(c.kind==='fire'){mesh=new THREE.Mesh(new THREE.SphereGeometry(0.12,10,10),new THREE.MeshBasicMaterial({color:0xffe0a0}));grp.add(mesh);}
   else{mesh=new THREE.Mesh(new THREE.OctahedronGeometry(0.16),new THREE.MeshBasicMaterial({color:c.color}));mesh.scale.set(0.7,0.7,1.8);grp.add(mesh);}
   grp.position.copy(from);scene.add(grp);
-  const p={mesh:grp,target,dmg:c.dmg*G.dmgMul,speed:22,kind:c.kind,color:c.color,hitEfk:c.hitEfk||'hit'};
+  const p={mesh:grp,target,owner:unit,dmg:c.dmg*G.dmgMul,speed:22,kind:c.kind,color:c.color,hitEfk:c.hitEfk||'hit'};
   if(c.kind==='fire')p.efkH=efkPlay('fireball',from,0.35,1.0); // 메이지는 FireBall 샘플이 날아가는 탄체
   G.projs.push(p);
   playOnce(unit,c.anim,'Walking_A');
 }
 function cleave(unit,target){
   const p=target.obj.position.clone();p.y=0.8;
-  efkPlay(unit.cfg.hitEfk||'ember',p,0.3,1.7);
+  if((unit.fxT||0)<=0){efkPlay(unit.cfg.hitEfk||'ember',p,0.4,1.4);unit.fxT=0.7;}
   damage(target,unit.cfg.dmg*G.dmgMul);
   playOnce(unit,unit.cfg.anim,'Walking_A');
 }
@@ -284,7 +285,7 @@ function damage(t,d){
 function killUnit(t){
   if(t.kind==='foe'){
     G.kills++;
-    const dp=t.obj.position.clone();dp.y=0.9;efkPlay(t.isBoss?'featherbomb':'toonhit',dp,t.isBoss?0.55:0.32,1.5);
+    const dp=t.obj.position.clone();dp.y=0.9;efkPlay(t.isBoss?'featherbomb':'toonhit',dp,t.isBoss?0.55:0.45,1.5);
     if(G.kills%CFG.killsPerLevel===0){G.level++;G.dmgMul*=CFG.levelMul;
       efkPlay('powerup',new THREE.Vector3(G.squad.position.x,0.2,G.squad.position.z),0.5,1.2);
       const l=labelSprite('레벨 업!','#ffe27a',2.4);l.position.set(G.squad.position.x,2.6,G.squad.position.z-1);addFx(l,1.6);}
@@ -391,15 +392,16 @@ async function efkInit(){
   gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);
   gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL,gl.NONE);
   const eff={};
-  const loads=[['hit','./assets/effekseer/effects/andrewfm/hit_eff.efk'],
-               ['fire','./assets/effekseer/effects/andrewfm/fire.efk'],
-               ['fireball','./assets/effekseer/effects/pierre-2/FireBall.efk'],
-               ['holy','./assets/effekseer/effects/pierre-2/Sword_Sacredlight.efk'],
+  const loads=FXLIST?FXLIST.split(',').map(s=>s.split('=')).map(([id,u])=>[id,'./assets/effekseer/effects/'+u]) : [['hit','./assets/effekseer/effects/andrewfm/hit_eff.efk'],
+               ['suzsword','./assets/effekseer/effects/suzuki/002_sword_effect/sword.efk'],
                ['ember','./assets/effekseer/effects/pierre-2/Sword_Ember.efk'],
-               ['lance','./assets/effekseer/effects/pierre-2/BloodLance.efk'],
-               ['bene','./assets/effekseer/effects/pierre-2/Benediction.efk'],
-               ['featherbomb','./assets/effekseer/effects/pierre-2/FeatherBomb.efk'],
+               ['cold','./assets/effekseer/effects/nextsoft/MagicCold.efk'],
+               ['flame','./assets/effekseer/effects/pierre-1/Flame.efk'],
+               ['herald','./assets/effekseer/effects/pierre-1/Herald.efk'],
+               ['fireball','./assets/effekseer/effects/pierre-2/FireBall.efk'],
                ['toonhit','./assets/effekseer/effects/tktk/ToonHit.efk'],
+               ['featherbomb','./assets/effekseer/effects/pierre-2/FeatherBomb.efk'],
+               ['bene','./assets/effekseer/effects/pierre-2/Benediction.efk'],
                ['powerup','./assets/effekseer/effects/nextsoft/PowerUp.efk']];
   await Promise.all(loads.map(([id,url])=>new Promise((res,rej)=>{
     const e=ctx.loadEffect(url,1,()=>res(),(w,p)=>rej(new Error(url+' '+w+' '+(p||'')))); // onload는 인자 없음 → 반환값 사용
@@ -444,20 +446,19 @@ function update(dt){
   // stage spawning
   G.layout.forEach((e,i)=>{
     if(G.spawned.has(i))return;
-    if(e.z<sq.z-28)return;
+    if(e.z<sq.z-40)return; // 구간 전환 공백 완화: 다음 파도를 더 일찍 스폰
     G.spawned.add(i);
     if(e.type==='foe'){if(!BOSSONLY)spawnFoe(e.foe,e.x,e.z);}
     else if(e.type==='boss')spawnFoe(null,e.x,e.z,true);
     else if(!BOSSONLY)spawnBlock(e.type,e.x,e.z);
   });
   // stage clear
-  const ahead=G.stage<5 && sq.z<G.stageZ0-CFG.stageLen+6;
-  const clearOfFoes=G.enemies.length===0;
-  if(ahead&&clearOfFoes)setStage(G.stage+1);
+  const ahead2=G.stage<5 && sq.z<G.stageZ0-CFG.stageLen+18;
+  if(ahead2)setStage(G.stage+1); // 경계 전에 다음 구역 생성 — 잔적 정리와 다음 파도가 겹쳐 공백 제거
   // allies
   for(const u of G.allies){
     u.mixer.update(dt);
-    u.cd-=dt;
+    u.cd-=dt;u.fxT=Math.max(0,(u.fxT||0)-dt);
     if(u.cd<=0){const t=nearestTarget(u);
       if(t){u.cfg.kind==='cleave'?cleave(u,t):fireBolt(u,t);u.cd=u.cfg.cd;}}
   }
@@ -493,7 +494,7 @@ function update(dt){
     const d=tp.clone().sub(p.mesh.position);const dist=d.length();
     const step=p.speed*dt;
     if(dist<=step+0.15){
-      efkPlay(p.hitEfk||'hit',tp,p.kind==='fire'?0.32:0.28,1.7);
+      if((p.owner.fxT||0)<=0){efkPlay(p.hitEfk||'hit',tp,0.4,1.4);p.owner.fxT=0.7;}
       if(p.efkH){try{p.efkH.stop();}catch(e){}p.efkH=null;}
       damage(p.target,p.dmg);
       scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);
