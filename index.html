@@ -21,6 +21,7 @@
   .overlay p{font-size:14px;line-height:1.7;margin:0 0 22px;color:#cfd8f0;max-width:320px;}
   .go{background:linear-gradient(180deg,#7a5cff,#5338e0);color:#fff;border:0;border-radius:12px;padding:14px 34px;font-size:17px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 6px 18px rgba(90,60,220,.45);}
   .go:active{transform:scale(.96);}
+  .go:disabled{background:#4a4a66;cursor:wait;box-shadow:none;opacity:.85;}
   .hidden{display:none !important;}
   .fps{position:fixed;left:10px;bottom:10px;color:#9fb3d8;font-size:10px;z-index:5;opacity:.8;pointer-events:none;}
 </style>
@@ -42,7 +43,7 @@
 <div class="overlay" id="title">
   <h1>아케인 서지</h1>
   <p>1지역 · 시작의 들판 (5구간)<br>소대를 좌우로 드래그해 이동합니다.<br>공격은 자동입니다. 보물상자를 부수면 대원이 늘어납니다.</p>
-  <button class="go" id="startBtn">게임 시작</button>
+  <button class="go" id="startBtn" disabled>로딩 중… 0%</button>
 </div>
 <div class="overlay hidden" id="end">
   <h1 id="endTitle"></h1>

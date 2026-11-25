@@ -6,6 +6,9 @@ const A='./assets/';
 const loader=new GLTFLoader();
 const gltfCache={};
 async function loadG(u){ if(!gltfCache[u]) gltfCache[u]=loader.loadAsync(u); return gltfCache[u]; }
+// 로딩 진행 표시: 버튼은 준비 완료까지 비활성, 진행률을 문구로 표시
+THREE.DefaultLoadingManager.onProgress=(url,loaded,total)=>{const b=document.getElementById('startBtn');
+  if(b&&b.disabled)b.textContent=`로딩 중… ${Math.min(99,Math.round(loaded/total*100))}%`;};
 
 // ---------- renderer / scene ----------
 const renderer=new THREE.WebGLRenderer({antialias:true});
@@ -39,6 +42,19 @@ function labelSprite(text,color='#ffffff',w=2.2,ttl=1.4){
   const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;
   const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthWrite:false,depthTest:false}));
   s.scale.set(w,w*0.25,1);return s;}
+
+function makeNumSprite(n){ // 블록 잔여 수치를 큰 숫자로 표시(원작 스타일)
+  const c=document.createElement('canvas');c.width=256;c.height=256;
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthWrite:false,depthTest:false}));
+  s.scale.set(1.5,1.5,1);
+  const o={sprite:s,c,tex:t};
+  drawNum(o,n);return o;}
+function drawNum(o,n){
+  const g=o.c.getContext('2d');g.clearRect(0,0,256,256);
+  g.font='800 130px "Noto Sans KR", sans-serif';g.textAlign='center';g.textBaseline='middle';
+  g.lineWidth=16;g.strokeStyle='rgba(0,0,0,0.85)';g.strokeText(String(n),128,134);g.fillStyle='#ffffff';g.fillText(String(n),128,134);
+  o.tex.needsUpdate=true;}
 
 // transient effects
 const fx=[];
@@ -210,9 +226,7 @@ async function spawnBlock(kind,x,z){
   }
   grp.add(discShadow(0.5));
   const unit={kind:'block',btype:kind,hp:30,maxHp:30,obj:grp,hitT:0};
-  const bg=new THREE.Sprite(new THREE.SpriteMaterial({color:0x222233,depthWrite:false}));bg.scale.set(1.1,0.12,1);
-  const fg=new THREE.Sprite(new THREE.SpriteMaterial({color:0xffcc44,depthWrite:false}));fg.scale.set(1.06,0.09,1);
-  bg.position.y=1.5;fg.position.y=1.5;grp.add(bg,fg);unit.hpFg=fg;
+  const num=makeNumSprite(30);num.sprite.position.y=1.55;grp.add(num.sprite);unit.hpNum=num;
   scene.add(grp);G.blocks.push(unit);
 }
 
@@ -284,6 +298,8 @@ function damage(t,d){
   t.hp-=d;t.hitT=0.12;
   if(t.kind==='foe')t.obj.position.z-=t.isBoss?0.04:0.14; // 타격 넉백
   if(t.hpFg){const f=Math.max(0,t.hp/t.maxHp);t.hpFg.scale.x=1.06*f;t.hpFg.position.x=-(1-f)*0.53;}
+  if(t.hpNum){drawNum(t.hpNum,Math.max(0,Math.ceil(t.hp))); // 피격 시 잔여 수치 감소가 크게 보이도록
+    const pop=1.5*1.25;t.hpNum.sprite.scale.set(pop,pop,1);t.hpNum.popT=0.12;}
   if(t.hp<=0&&t.kind!=='ally')killUnit(t);
 }
 function killUnit(t){
@@ -308,6 +324,7 @@ function killUnit(t){
       G.dmgMul*=1.2;G.gauge=Math.min(100,G.gauge+40);
       const l=labelSprite('공격력 +20%','#9fe8ff',2.4);l.position.copy(p).add(new THREE.Vector3(0,1,0));addFx(l,1.6);
     }
+    if(t.hpNum){t.obj.remove(t.hpNum.sprite);t.hpNum=null;}
     G.blocks.splice(G.blocks.indexOf(t),1);
     t.deadT=0.01;t.remove=true;
   }
@@ -352,7 +369,15 @@ addEventListener('pointercancel',onUp);
 
 // ---------- flow ----------
 const $=id=>document.getElementById(id);
+function preloadAssets(){ // 게임 플레이 중 로딩 지연이 없도록 전 에셋 예비 로드
+  const urls=[...Object.values(CLASSES).map(c=>c.u),...Object.values(CLASSES).filter(c=>c.w).map(c=>c.w.u),
+    ...Object.values(FOES).map(f=>f.u),BOSS.u,'env/chest_gold.glb',
+    'forest/Tree_1_A_Color1.gltf','forest/Tree_2_E_Color1.gltf','forest/Tree_3_A_Color1.gltf',
+    'forest/Bush_1_A_Color1.gltf','forest/Rock_1_A_Color1.gltf','forest/Grass_1_C_Color1.gltf','forest/Rock_2_B_Color1.gltf'];
+  return Promise.all([...new Set(urls)].map(u=>loadG(A+u)));
+}
 async function init(){
+  const pre=preloadAssets();
   await buildMeadow();
   G.squad=new THREE.Group();scene.add(G.squad);
   G.squad.position.set(0,0,0);
@@ -366,7 +391,9 @@ async function init(){
   if(WEAK)G.dmgMul=0.05;
   if(GAUGE0)G.gauge=GAUGE0;
   setStage(stg);
-  $('startBtn').addEventListener('click',()=>{$('title').classList.add('hidden');G.state='play';});
+  await pre; // 전 에셋 예비 로드 완료 대기
+  const sb=$('startBtn');sb.disabled=false;sb.textContent='게임 시작';
+  sb.addEventListener('click',()=>{$('title').classList.add('hidden');G.state='play';});
   $('retryBtn').addEventListener('click',()=>location.reload());
   requestAnimationFrame(tick);
 }
@@ -439,6 +466,7 @@ function update(dt){
   if(G.stage===5&&G.bossDead&&G.enemies.length===0){endGame(true);return;}
   // blocks hitT
   for(const b of [...G.blocks]){if(b.hitT>0)b.hitT-=dt;
+    if(b.hpNum){const s=b.hpNum.sprite.scale.x+(1.5-b.hpNum.sprite.scale.x)*Math.min(1,dt*10);b.hpNum.sprite.scale.set(s,s,1);}
     const tag=b.obj.userData.tag;
     if(tag&&tag.visible){const dz=b.obj.position.z-sq.z; // 부대가 지나친(공격/선택 구간 밖) 보상 라벨은 숨김
       if(dz>-1.0)tag.visible=false;}
