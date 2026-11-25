@@ -7,4 +7,4 @@
 모두 zip 내부 라이선스 파일과 공식 페이지에서 확인한 CC0/MIT.
 원작 '물결 소탕'(everyday-game)의 코드·에셋은 사용하지 않음(라이선스 미확인, 독립 구현).
 - Effekseer 런타임(effekseer.min.js, effekseer.wasm) — MIT, https://github.com/effekseer/Effekseer
-- Effekseer 공식 샘플 효과(fire.efk, hit_eff.efk, LightningStrike.efk 및 텍스처, 제작: AndrewFM, Pierre) — CC0, https://effekseer.github.io
+- Effekseer 공식 샘플 효과 및 텍스처 — CC0, https://effekseer.github.io (사용: AndrewFM fire.efk·hit_eff.efk / Pierre FireBall·Sword_Sacredlight·Sword_Ember·BloodLance·Benediction·FeatherBomb·PhantasmMeteor_Single / tktk ToonHit / NextSoft PowerUp)

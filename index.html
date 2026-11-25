@@ -12,10 +12,6 @@
   .stage small{display:block;font-weight:400;font-size:11px;opacity:.85;}
   .stats{text-align:right;font-size:12px;line-height:1.5;}
   .hearts{font-size:15px;letter-spacing:2px;}
-  .gaugeWrap{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;width:min(72vw,420px);z-index:5;pointer-events:none;}
-  .gaugeLabel{display:flex;justify-content:space-between;font-size:11px;color:#dfe8ff;text-shadow:0 1px 2px rgba(0,0,0,.8);margin-bottom:4px;}
-  .gauge{height:10px;border-radius:6px;background:rgba(10,14,26,.65);border:1px solid rgba(140,170,255,.35);overflow:hidden;}
-  .gauge>i{display:block;height:100%;width:0%;background:linear-gradient(90deg,#66d9ff,#b37aff);transition:width .18s;}
   .overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(6,8,16,.82);z-index:10;color:#fff;text-align:center;padding:24px;}
   .overlay h1{font-size:26px;margin:0 0 10px;}
   .overlay p{font-size:14px;line-height:1.7;margin:0 0 22px;color:#cfd8f0;max-width:320px;}
@@ -34,10 +30,6 @@
     <div>대원 <b id="squadN">4</b> · 레벨 <b id="lv">1</b></div>
     <div>처치 <b id="kills">0</b></div>
   </div>
-</div>
-<div class="gaugeWrap">
-  <div class="gaugeLabel"><span>합성 마법 (자동 발동)</span><span id="gaugePct">0%</span></div>
-  <div class="gauge"><i id="gaugeFill"></i></div>
 </div>
 <div class="fps" id="fps"></div>
 <div class="overlay" id="title">
