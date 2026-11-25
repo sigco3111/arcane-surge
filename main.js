@@ -42,7 +42,7 @@ function labelSprite(text,color='#ffffff',w=2.2,ttl=1.4){
 
 // transient effects
 const fx=[];
-function addFx(obj,ttl,fade=true){scene.add(obj);fx.push({obj,t:ttl,ttl,fade});}
+function addFx(obj,ttl,fade=true){scene.add(obj);fx.push({obj,t:ttl*FXSLOW,ttl:ttl*FXSLOW,fade});}
 function spark(pos,color,size=1.6,ttl=0.35){const g=glow(color,size,1);g.position.copy(pos);addFx(g,ttl);}
 function lightningFx(a,b,color=0xffee55){
   const grp=new THREE.Group();const N=6;
@@ -80,6 +80,8 @@ const FOES={
 const TS=parseFloat(new URLSearchParams(location.search).get('ts'))||1; // 테스트용 시간배율(전체 균일)
 const WEAK=new URLSearchParams(location.search).has('weak'); // 패배 경로 테스트용
 const BOSSONLY=new URLSearchParams(location.search).has('bossonly'); // 보스 돌파 경로 단독 검증용
+const GAUGE0=parseFloat(new URLSearchParams(location.search).get('gauge'))||0; // 합성 마법 테스트용 초기 게이지
+const FXSLOW=parseFloat(new URLSearchParams(location.search).get('fxslow'))||1; // 이펙트 수명 배율(캡처 전용, 외형 불변)
 const BOSS={u:'bosses/Mushnub_Evolved.gltf',hp:260,spd:1.9,s:0.95,rr:1.3,gltf:true};
 
 // ---------- state ----------
@@ -341,6 +343,7 @@ async function init(){
     G.squad.position.z=-CFG.stageLen*(stg-1);
   }
   if(WEAK)G.dmgMul=0.05;
+  if(GAUGE0)G.gauge=GAUGE0;
   setStage(stg);
   $('startBtn').addEventListener('click',()=>{$('title').classList.add('hidden');G.state='play';});
   $('retryBtn').addEventListener('click',()=>location.reload());
