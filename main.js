@@ -67,16 +67,16 @@ const CLASSES={
   Rogue:{u:'Rogue.glb',s:0.47,dmg:4,cd:0.55,range:10.5,kind:'shard',color:0x9fdcff,hitEfk:'cold',anim:'2H_Ranged_Shoot',w:{slot:'handslotl',u:'weapons/bow_A_withString.gltf'}},
   Mage:{u:'Mage.glb',s:0.38,dmg:9,cd:1.15,range:10.5,kind:'fire',color:0xff7a2a,hitEfk:'flame',anim:'Spellcast_Shoot',w:{slot:'handslotr',u:'weapons/wand.gltf'}},
 };
-CLASSES.Rogue_Hooded={...CLASSES.Rogue,u:'Rogue_Hooded.glb',color:0xc79fff,hitEfk:'herald'};
+CLASSES.Rogue_Hooded={...CLASSES.Rogue,u:'Rogue_Hooded.glb',color:0xc79fff,hitEfk:'aura',homing:true}; // 특수 유닛만 유도 탄(사용자 결정 20:02)
 const START_SQUAD=['Knight','Barbarian','Rogue','Mage'];
 const EXTRA_CYCLE=['Rogue_Hooded','Mage','Knight','Barbarian'];
 const CLS_KO={Knight:'나이트',Barbarian:'바바리안',Rogue:'로그',Mage:'메이지',Rogue_Hooded:'후드 로그'};
 const FOES={
-  Warrior:{u:'Skeleton_Warrior.glb',hp:26,spd:1.05,s:0.56,rr:0.6},
-  Minion:{u:'Skeleton_Minion.glb',hp:16,spd:1.5,s:0.56,rr:0.5},
-  Rogue:{u:'Skeleton_Rogue.glb',hp:20,spd:1.3,s:0.56,rr:0.55},
-  Mage:{u:'Skeleton_Mage.glb',hp:18,spd:0.9,s:0.56,rr:0.55},
-  Blob:{u:'blob/GreenBlob.gltf',hp:10,spd:2.0,s:0.35,rr:0.4,gltf:true},
+  Warrior:{u:'Skeleton_Warrior.glb',hp:26,spd:1.35,s:0.56,rr:0.6},
+  Minion:{u:'Skeleton_Minion.glb',hp:16,spd:2.05,s:0.56,rr:0.5},
+  Rogue:{u:'Skeleton_Rogue.glb',hp:20,spd:1.7,s:0.56,rr:0.55},
+  Mage:{u:'Skeleton_Mage.glb',hp:18,spd:1.25,s:0.56,rr:0.55},
+  Blob:{u:'blob/GreenBlob.gltf',hp:10,spd:2.6,s:0.35,rr:0.4,gltf:true},
 };
 const TS=parseFloat(new URLSearchParams(location.search).get('ts'))||1; // 테스트용 시간배율(전체 균일)
 const WEAK=new URLSearchParams(location.search).has('weak'); // 패배 경로 테스트용
@@ -84,7 +84,7 @@ const BOSSONLY=new URLSearchParams(location.search).has('bossonly'); // 보스 �
 const FXSLOW=parseFloat(new URLSearchParams(location.search).get('fxslow'))||1; // 이펙트 수명 배율(캡처 전용, 외형 불변)
 const NOFX=new URLSearchParams(location.search).has('nofx'); // 로직 회귀 전용: 효과 재생/그리기 생략
 const FXLIST=new URLSearchParams(location.search).get('fxlist'); // 효과 청취 전용: id=경로,id=경로
-const BOSS={u:'bosses/Mushnub_Evolved.gltf',hp:260,spd:1.9,s:0.95,rr:1.3,gltf:true};
+const BOSS={u:'bosses/Mushnub_Evolved.gltf',hp:520,spd:1.9,s:0.95,rr:1.3,gltf:true};
 
 // ---------- state ----------
 const G={state:'title',stage:1,lives:CFG.lives,kills:0,level:1,dmgMul:1,
@@ -172,9 +172,11 @@ function layoutSquad(){ // 뭉친 대형: 황금각 나선 배치, 인원이 늘
 
 async function spawnFoe(type,x,z,isBoss=false){
   const f=isBoss?BOSS:FOES[type];
+  const hscale=1.28**(G.stage-1); // 원작 tide hs=1.3^(단계-1) 참고: 진행할수록 적 체력 증가
+  const sscale=isBoss?1:Math.min(1.5,1+0.07*(G.stage-1)); // 원작 참고: 단계가 갈수록 적 이동 가속
   const {root,anims}=await makeModel(A+f.u,f.s,isBoss?null:[1.05,0.8,0.8]);
   root.position.set(x,0,z);root.rotation.y=0;
-  const unit={kind:'foe',type,isBoss,hp:f.hp,maxHp:f.hp,cfg:f,obj:root,hitT:0,...makeMixer(root,anims)};
+  const unit={kind:'foe',type,isBoss,hp:Math.round(f.hp*hscale),maxHp:Math.round(f.hp*hscale),cfg:f,spd:f.spd*sscale,obj:root,hitT:0,...makeMixer(root,anims)};
   const walk=unit.acts.Walking_A||unit.acts.Walk;if(walk){walk.play();walk.time=Math.random();}
   const rr=ring(0xff2233,f.rr);rr.position.y=0.035;root.add(rr);
   const fd=new THREE.Mesh(new THREE.CircleGeometry(f.rr*1.15,28),new THREE.MeshBasicMaterial({color:0xff2233,transparent:true,opacity:0.2,depthWrite:false}));
@@ -203,8 +205,9 @@ async function spawnBlock(kind,x,z){
     grp.userData.tag=tag;
   }
   grp.add(discShadow(0.5));
-  const unit={kind:'block',btype:kind,hp:30,maxHp:30,obj:grp,hitT:0};
-  const num=makeNumSprite(30);num.sprite.position.y=1.55;grp.add(num.sprite);unit.hpNum=num;
+  const bhp=Math.round(30*(1.3**(G.stage-1))*Math.max(1,G.dmgMul*0.8)); // 원작 참고: 진행할수록 상자 수치 증가
+  const unit={kind:'block',btype:kind,hp:bhp,maxHp:bhp,obj:grp,hitT:0};
+  const num=makeNumSprite(bhp);num.sprite.position.y=1.55;grp.add(num.sprite);unit.hpNum=num;
   scene.add(grp);G.blocks.push(unit);
 }
 
@@ -213,11 +216,12 @@ function stageLayout(n){
   const L=[];const z0=-CFG.stageLen*(n-1);
   if(n<5){
     const foeTypes=['Warrior','Minion','Rogue','Mage'];
-    [8,15,22,29,36,43,49].forEach((dz,w)=>{ // 파도 간격을 좁혀 전투 공백 축소
-      const cnt=1+n;
+    [19,25,31,37,43,49,55,61].forEach((dz,w)=>{ // 원작 참고: 파도 수·밀도 상향(더 빨리 더 많이), 첫 파도는 접촉 여유 확보
+      const cnt=2+n;
+      const cx=[-1.4,1.6,-0.6,1.2,-1.8,0.9,-1.2,1.7][w%8]; // 원작처럼 파도가 통로 이곳저곳에 뭉쳐 나옴 — 가만히 서 있으면 맞지 않는 파도가 생김
       for(let i=0;i<cnt;i++){
         const t=foeTypes[(w+i+n)%4];
-        L.push({dz:dz+ (i%2)*1.6, type:'foe',foe:t,x:0.5+ ((i*47)%10)/10*1.9});
+        L.push({dz:dz+ (i%2)*1.6, type:'foe',foe:t,x:cx+((i*47)%10)/10*1.4-0.7});
       }
     });
     L.push({dz:12,type:'chest',x:-1.5});
@@ -228,7 +232,8 @@ function stageLayout(n){
     L.push({dz:11,type:'foe',foe:'Minion',x:1.8});
     L.push({dz:15,type:'foe',foe:'Rogue',x:1.2});
     L.push({dz:19,type:'foe',foe:'Minion',x:0.6});
-    L.push({dz:23,type:'foe',foe:'Mage',x:1.7});
+    L.push({dz:21,type:'foe',foe:'Mage',x:1.7});
+    L.push({dz:23,type:'foe',foe:'Minion',x:0.8});
     L.push({dz:25,type:'boss',x:0});
   }
   L.forEach(e=>e.z=z0-e.dz);
@@ -246,6 +251,7 @@ function nearestTarget(unit){
   const consider=(o,bias=0)=>{
     const p=o.obj.position;const dz=wp.z-p.z; // ahead of ally means p.z < wp.z
     if(p.z>wp.z-0.3)return; // 전방의 적만 자동 공격(보스 포함)
+    if(Math.abs(p.x-wp.x)>2.2)return; // 좌우로 정렬된 대상만 교전 — 부대 위치 선정이 중요해지도록(사용자 결정 20:02)
     const d=Math.hypot(p.x-wp.x,dz)-bias;
     if(d<bd){bd=d;best=o;}
   };
@@ -263,7 +269,11 @@ function fireBolt(unit,target){
   else if(c.kind==='fire'){mesh=new THREE.Mesh(new THREE.SphereGeometry(0.12,10,10),new THREE.MeshBasicMaterial({color:0xffe0a0}));grp.add(mesh);}
   else{mesh=new THREE.Mesh(new THREE.OctahedronGeometry(0.16),new THREE.MeshBasicMaterial({color:c.color}));mesh.scale.set(0.7,0.7,1.8);grp.add(mesh);}
   grp.position.copy(from);scene.add(grp);
-  const p={mesh:grp,target,owner:unit,dmg:c.dmg*G.dmgMul,speed:22,kind:c.kind,color:c.color,hitEfk:c.hitEfk||'hit'};
+  const p={mesh:grp,target:c.homing?target:null,owner:unit,dmg:c.dmg*G.dmgMul,speed:22,kind:c.kind,color:c.color,hitEfk:c.hitEfk||'hit'};
+  if(!c.homing){const tp0=target.obj.position.clone();tp0.y=0.8;
+    if(target.kind==='foe')tp0.z+=(target.spd||target.cfg.spd)*(tp0.distanceTo(from)/22); // 적의 전진을 앞질러 조준(추적은 아님)
+    const d0=tp0.clone().sub(from);const dist0=Math.max(0.1,d0.length());
+    p.vel=d0.normalize().multiplyScalar(22);p.maxDist=dist0+3.5;p.traveled=0;p.pierce=3;p.hitSet=new Set();} // 일반 유닛은 직사탄: 빗나갈 수 있지만 경로상 적을 최대 3회 관통(원작 참고)
   if(c.kind==='fire')p.efkH=efkPlay('fireball',from,0.35,1.0); // 메이지는 FireBall 샘플이 날아가는 탄체
   G.projs.push(p);
   playOnce(unit,c.anim,'Walking_A');
@@ -397,7 +407,7 @@ async function efkInit(){
                ['ember','./assets/effekseer/effects/pierre-2/Sword_Ember.efk'],
                ['cold','./assets/effekseer/effects/nextsoft/MagicCold.efk'],
                ['flame','./assets/effekseer/effects/pierre-1/Flame.efk'],
-               ['herald','./assets/effekseer/effects/pierre-1/Herald.efk'],
+               ['aura','./assets/effekseer/effects/effekseer-1.6/Aura01.efk'],
                ['fireball','./assets/effekseer/effects/pierre-2/FireBall.efk'],
                ['toonhit','./assets/effekseer/effects/tktk/ToonHit.efk'],
                ['featherbomb','./assets/effekseer/effects/pierre-2/FeatherBomb.efk'],
@@ -446,7 +456,7 @@ function update(dt){
   // stage spawning
   G.layout.forEach((e,i)=>{
     if(G.spawned.has(i))return;
-    if(e.z<sq.z-40)return; // 구간 전환 공백 완화: 다음 파도를 더 일찍 스폰
+    if(e.z<sq.z-24)return; // 파도가 시간차를 두고 도래하도록 스폰 예지 거리 조정(한꺼번에 몰려와 순삭되는 것 방지)
     G.spawned.add(i);
     if(e.type==='foe'){if(!BOSSONLY)spawnFoe(e.foe,e.x,e.z);}
     else if(e.type==='boss')spawnFoe(null,e.x,e.z,true);
@@ -469,7 +479,7 @@ function update(dt){
       if(e.deadT<=0){scene.remove(e.obj);G.enemies.splice(G.enemies.indexOf(e),1);
         if(e.isBoss)G.boss=null;}
       continue;}
-    e.obj.position.z+=e.cfg.spd*dt;
+    e.obj.position.z+=(e.spd||e.cfg.spd)*dt;
     if(e.hitT>0)e.hitT-=dt;
     if(e.obj.position.z>sq.z+CFG.defLine){ // 방어선 돌파
       if(e.isBoss){endGame(false);return;} // 보스 돌파는 즉시 패배
@@ -489,6 +499,27 @@ function update(dt){
     if(b.remove)scene.remove(b.obj);}
   // projectiles
   for(const p of [...G.projs]){
+    if(p.vel){ // 직사탄: 직진하며 경로상의 첫 대상에 명중, 사거리 끝에서 소멸
+      const step=p.speed*dt;const px0=p.mesh.position.x,pz0=p.mesh.position.z;
+      p.mesh.position.addScaledVector(p.vel,step);p.traveled+=step;
+      if(p.efkH){try{p.efkH.setLocation(p.mesh.position.x,p.mesh.position.y,p.mesh.position.z);}catch(e){p.efkH=null;}}
+      const ux=p.vel.x/p.speed,uz=p.vel.z/p.speed; // 이동 선분 기준 최근접 판정(고속 관통 방지)
+      let hit=null,bhd=1e9;
+      const seg=(o,rad)=>{const ox=o.obj.position.x-px0,oz=o.obj.position.z-pz0;
+        const t=Math.max(0,Math.min(step,ox*ux+oz*uz));const dd=Math.hypot(ox-ux*t,oz-uz*t);
+        if(dd<rad&&dd<bhd){bhd=dd;hit=o;}};
+      for(const e of G.enemies)if(e.hp>0&&e.deadT==null&&!p.hitSet.has(e))seg(e,0.6);
+      if(!hit)for(const b of G.blocks)if(b.hp>0)seg(b,0.7);
+      if(hit){const hp2=hit.obj.position.clone();hp2.y=0.8;
+        if((p.owner.fxT||0)<=0){efkPlay(p.hitEfk||'hit',hp2,0.4,1.4);p.owner.fxT=0.7;}
+        damage(hit,p.dmg);
+        if(hit.kind==='block'){if(p.efkH){try{p.efkH.stop();}catch(e){}p.efkH=null;}scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);continue;} // 블록은 탄을 막음
+        p.hitSet.add(hit);p.pierce--;
+        if(p.pierce<=0){if(p.efkH){try{p.efkH.stop();}catch(e){}p.efkH=null;}scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);continue;}}
+      if(p.traveled>=p.maxDist){if(p.efkH){try{p.efkH.stop();}catch(e){}p.efkH=null;}
+        scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);}
+      continue;
+    }
     if(!p.target||p.target.hp<=0){scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);continue;}
     const tp=p.target.obj.position.clone();tp.y=0.8;
     const d=tp.clone().sub(p.mesh.position);const dist=d.length();
