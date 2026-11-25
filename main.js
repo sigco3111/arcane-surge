@@ -284,19 +284,20 @@ function fireBolt(unit,target){
   else{mesh=new THREE.Mesh(new THREE.OctahedronGeometry(0.16),new THREE.MeshBasicMaterial({color:0xfff6c0}));mesh.scale.set(0.7,0.7,1.8);grp.add(mesh);
     const gl=glow(0xffe27a,1.25,0.95);grp.add(gl);}
   grp.position.copy(from);scene.add(grp);
-  G.projs.push({mesh:grp,target,dmg:c.dmg*G.dmgMul,speed:13,kind:c.kind,color:c.color});
+  G.projs.push({mesh:grp,target,dmg:c.dmg*G.dmgMul,speed:22,kind:c.kind,color:c.color});
   playOnce(unit,c.anim,'Walking_A');
 }
 function cleave(unit,target){
   const p=target.obj.position.clone();p.y=0.6;
   spark(p,unit.cfg.color,3.0,0.3);
   burst(p,unit.cfg.color,16,4.0,0.45,0.6);
+  efkPlay('hit',p,0.55,1.4);
   damage(target,unit.cfg.dmg*G.dmgMul);
   playOnce(unit,unit.cfg.anim,'Walking_A');
 }
 function damage(t,d){
   t.hp-=d;t.hitT=0.12;
-  if(t.kind==='foe')t.obj.position.z-=t.isBoss?0.04:0.14; // 타격 넉백
+  if(t.kind==='foe')t.obj.position.z-=t.isBoss?0.06:0.2; // 타격 넉백
   if(t.hpFg){const f=Math.max(0,t.hp/t.maxHp);t.hpFg.scale.x=1.06*f;t.hpFg.position.x=-(1-f)*0.53;}
   if(t.hpNum){drawNum(t.hpNum,Math.max(0,Math.ceil(t.hp))); // 피격 시 잔여 수치 감소가 크게 보이도록
     const pop=1.5*1.25;t.hpNum.sprite.scale.set(pop,pop,1);t.hpNum.popT=0.12;}
@@ -325,6 +326,8 @@ function killUnit(t){
       const l=labelSprite('공격력 +20%','#9fe8ff',2.4);l.position.copy(p).add(new THREE.Vector3(0,1,0));addFx(l,1.6);
     }
     if(t.hpNum){t.obj.remove(t.hpNum.sprite);t.hpNum=null;}
+    if(t.obj.userData.tag){t.obj.remove(t.obj.userData.tag);t.obj.userData.tag=null;} // 파괴된 블록의 보상 라벨 잔존 방지
+    scene.remove(t.obj); // G.blocks에서 먼저 빠지면 tick의 제거 분기가 못 잡아 시체가 씬에 남던 버그 수정
     G.blocks.splice(G.blocks.indexOf(t),1);
     t.deadT=0.01;t.remove=true;
   }
@@ -348,6 +351,7 @@ function storm(){
     const p=t.obj.position.clone();p.y=0.8;
     const top=p.clone();top.y=9;
     lightningFx(top,p);
+    efkPlay('bolt',p,0.7,1.2);
     const p2=p.clone();p2.x+=0.35;const top2=top.clone();top2.x+=0.8;
     lightningFx(top2,p2);
     burst(p,0xffee55,10,3.6,0.4,0.5);
@@ -391,6 +395,7 @@ async function init(){
   if(WEAK)G.dmgMul=0.05;
   if(GAUGE0)G.gauge=GAUGE0;
   setStage(stg);
+  try{await efkInit();}catch(e){console.warn('effekseer off:',e.message);efk=null;}
   await pre; // 전 에셋 예비 로드 완료 대기
   const sb=$('startBtn');sb.disabled=false;sb.textContent='게임 시작';
   sb.addEventListener('click',()=>{$('title').classList.add('hidden');G.state='play';});
@@ -409,6 +414,34 @@ function endGame(win){
 
 // ---------- update ----------
 let last=performance.now(),fpsEMA=60;
+// ---------- Effekseer 연동 (sigco3111/effekseer-ko; 런타임 MIT, 샘플 효과 CC0) ----------
+// src/player.js(MIT, Patch)의 three.js 래퍼를 이 게임 구조에 맞게 옮김. 실패 시 자체 효과만 사용.
+let efk=null;
+async function efkInit(){
+  if(!window.effekseer)return;
+  const gl=renderer.getContext();
+  await new Promise((res,rej)=>window.effekseer.initRuntime('./assets/effekseer/effekseer.wasm',res,()=>rej(new Error('wasm load failed'))));
+  const ctx=window.effekseer.createContext();
+  ctx.init(gl,{instanceMaxCount:16000,squareMaxCount:48000});
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);
+  gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL,gl.NONE);
+  const eff={};
+  const loads=[['hit','./assets/effekseer/effects/andrewfm/hit_eff.efk'],
+               ['fire','./assets/effekseer/effects/andrewfm/fire.efk'],
+               ['bolt','./assets/effekseer/effects/pierre-1/LightningStrike.efk']];
+  await Promise.all(loads.map(([id,url])=>new Promise((res,rej)=>{
+    ctx.loadEffect(url,1,e=>{eff[id]=e;res();},(w,p)=>rej(new Error(url+' '+w+' '+(p||''))));})));
+  efk={ctx,eff};
+}
+function efkPlay(id,pos,scale=1,speed=1){
+  if(!efk||!efk.eff[id])return null;
+  const h=efk.ctx.play(efk.eff[id],pos.x,pos.y,pos.z);
+  if(scale!==1)h.setScale(scale,scale,scale);
+  if(speed!==1)h.setSpeed(speed);
+  return h;
+}
+
 function tick(now){
   requestAnimationFrame(tick);
   const dt=Math.min(0.25,(now-last)/1000);last=now;
@@ -419,6 +452,15 @@ function tick(now){
   cam.lookAt(G.squad?G.squad.position.x*0.3:0,0,(G.squad?G.squad.position.z:0)-6);
   if(G.defLineMesh)G.defLineMesh.position.set(0,0.035,(G.squad?G.squad.position.z:0)+CFG.defLine);
   renderer.render(scene,cam);
+  if(efk){ // Effekseer 효과를 three 위에 같은 카메라로 그림
+    efk.ctx.update(dt*60);
+    const gl=renderer.getContext();
+    efk.ctx.setProjectionMatrix(cam.projectionMatrix.elements);
+    efk.ctx.setCameraMatrix(cam.matrixWorldInverse.elements);
+    gl.useProgram(null);
+    efk.ctx.draw();
+    renderer.resetState();
+  }
 }
 function update(dt){
   dt*=TS;
@@ -479,13 +521,14 @@ function update(dt){
     const step=p.speed*dt;
     if(dist<=step+0.15){
       const col=p.kind==='fire'?0xff7a2a:p.kind==='shard'?0x66ccff:0xffe27a;
-      spark(tp,col,p.kind==='fire'?2.2:1.5,0.3);
-      burst(tp,col,p.kind==='fire'?18:12,p.kind==='fire'?4.2:3.4,0.5,p.kind==='fire'?0.7:0.55);
+      spark(tp,col,p.kind==='fire'?2.8:1.9,0.32);
+      burst(tp,col,p.kind==='fire'?22:16,p.kind==='fire'?5.0:4.2,0.5,p.kind==='fire'?0.75:0.6);
+      if(p.kind==='fire')efkPlay('fire',tp,0.5,1.4);else efkPlay('hit',tp,0.5,1.4);
       damage(p.target,p.dmg);
       scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);
     }else{p.mesh.position.addScaledVector(d.normalize(),step);
       p.trailT=(p.trailT||0)-dt;
-      if(p.trailT<=0){p.trailT=0.05;const t=glow(p.color||0xffffff,0.55,0.55);t.position.copy(p.mesh.position);addFx(t,0.22);}}
+      if(p.trailT<=0){p.trailT=0.03;const t=glow(p.color||0xffffff,0.5,0.5);t.position.copy(p.mesh.position);addFx(t,0.18);}}
   }
   // gauge storm
   if(G.gauge>=100){G.gauge=0;storm();}
