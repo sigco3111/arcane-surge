@@ -63,9 +63,9 @@ const CFG={
 };
 const CLASSES={
   Knight:{u:'Knight.glb',s:0.47,dmg:6,cd:0.9,range:9.5,kind:'bolt',color:0xffe27a,hitEfk:'suzsword',anim:'1H_Melee_Attack_Stab',w:{slot:'handslotr',u:'weapons/spear_A.gltf'}},
-  Barbarian:{u:'Barbarian.glb',s:0.40,dmg:14,cd:1.25,range:2.6,kind:'cleave',color:0xff7a2a,hitEfk:'ember',anim:'2H_Melee_Attack_Spin'},
+  Barbarian:{u:'Barbarian.glb',s:0.40,dmg:14,cd:1.25,range:2.6,kind:'cleave',color:0xff7a2a,hitEfk:'ember',fxScale:0.30,fxSpeed:1.9,anim:'2H_Melee_Attack_Spin'},
   Rogue:{u:'Rogue.glb',s:0.47,dmg:4,cd:0.55,range:10.5,kind:'shard',color:0x9fdcff,hitEfk:'cold',anim:'2H_Ranged_Shoot',w:{slot:'handslotl',u:'weapons/bow_A_withString.gltf'}},
-  Mage:{u:'Mage.glb',s:0.38,dmg:9,cd:1.15,range:10.5,kind:'fire',color:0xff7a2a,hitEfk:'flame',anim:'Spellcast_Shoot',w:{slot:'handslotr',u:'weapons/wand.gltf'}},
+  Mage:{u:'Mage.glb',s:0.38,dmg:9,cd:1.15,range:10.5,kind:'fire',color:0xff7a2a,hitEfk:'flame',fxScale:0.24,fxSpeed:2.4,anim:'Spellcast_Shoot',w:{slot:'handslotr',u:'weapons/wand.gltf'}},
 };
 CLASSES.Rogue_Hooded={...CLASSES.Rogue,u:'Rogue_Hooded.glb',color:0xc79fff,hitEfk:'aura',homing:true}; // 특수 유닛만 유도 탄(사용자 결정 20:02)
 const START_SQUAD=['Knight','Barbarian','Rogue','Mage'];
@@ -280,7 +280,7 @@ function fireBolt(unit,target){
 }
 function cleave(unit,target){
   const p=target.obj.position.clone();p.y=0.8;
-  if((unit.fxT||0)<=0){efkPlay(unit.cfg.hitEfk||'ember',p,0.4,1.4);unit.fxT=0.7;}
+  if((unit.fxT||0)<=0){efkPlay(unit.cfg.hitEfk||'ember',p,unit.cfg.fxScale||0.4,unit.cfg.fxSpeed||1.4);unit.fxT=0.7;}
   damage(target,unit.cfg.dmg*G.dmgMul);
   playOnce(unit,unit.cfg.anim,'Walking_A');
 }
@@ -511,7 +511,7 @@ function update(dt){
       for(const e of G.enemies)if(e.hp>0&&e.deadT==null&&!p.hitSet.has(e))seg(e,0.6);
       if(!hit)for(const b of G.blocks)if(b.hp>0)seg(b,0.7);
       if(hit){const hp2=hit.obj.position.clone();hp2.y=0.8;
-        if((p.owner.fxT||0)<=0){efkPlay(p.hitEfk||'hit',hp2,0.4,1.4);p.owner.fxT=0.7;}
+        if((p.owner.fxT||0)<=0){efkPlay(p.hitEfk||'hit',hp2,p.owner.cfg.fxScale||0.4,p.owner.cfg.fxSpeed||1.4);p.owner.fxT=0.7;}
         damage(hit,p.dmg);
         if(hit.kind==='block'){if(p.efkH){try{p.efkH.stop();}catch(e){}p.efkH=null;}scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);continue;} // 블록은 탄을 막음
         p.hitSet.add(hit);p.pierce--;
@@ -525,7 +525,7 @@ function update(dt){
     const d=tp.clone().sub(p.mesh.position);const dist=d.length();
     const step=p.speed*dt;
     if(dist<=step+0.15){
-      if((p.owner.fxT||0)<=0){efkPlay(p.hitEfk||'hit',tp,0.4,1.4);p.owner.fxT=0.7;}
+      if((p.owner.fxT||0)<=0){efkPlay(p.hitEfk||'hit',tp,p.owner.cfg.fxScale||0.4,p.owner.cfg.fxSpeed||1.4);p.owner.fxT=0.7;}
       if(p.efkH){try{p.efkH.stop();}catch(e){}p.efkH=null;}
       damage(p.target,p.dmg);
       scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);
