@@ -200,12 +200,13 @@ async function spawnBlock(kind,x,z){
     const gl=glow(0xffcc44,2.0,0.6);gl.position.y=0.55;grp.add(gl);
     const cls=EXTRA_CYCLE[G.extra%EXTRA_CYCLE.length];G.extra++;
     const tag=labelSprite(`대원 +1 ${CLS_KO[cls]}`,'#ffd966',2.9);tag.position.y=2.1;grp.add(tag);
-    grp.userData.rewardCls=cls;
+    grp.userData.rewardCls=cls;grp.userData.tag=tag;
   }else{
     const cry=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.9,0.5),new THREE.MeshStandardMaterial({color:0x66e0ff,emissive:0x2288cc,emissiveIntensity:1.6,roughness:0.2}));
     cry.position.y=0.55;cry.rotation.y=Math.PI/4;grp.add(cry);
     const gl=glow(0x66e0ff,2.1,0.6);gl.position.y=0.85;grp.add(gl);
     const tag=labelSprite('공격력 +20%','#9fe8ff',2.6);tag.position.y=2.1;grp.add(tag);
+    grp.userData.tag=tag;
   }
   grp.add(discShadow(0.5));
   const unit={kind:'block',btype:kind,hp:30,maxHp:30,obj:grp,hitT:0};
@@ -438,6 +439,9 @@ function update(dt){
   if(G.stage===5&&G.bossDead&&G.enemies.length===0){endGame(true);return;}
   // blocks hitT
   for(const b of [...G.blocks]){if(b.hitT>0)b.hitT-=dt;
+    const tag=b.obj.userData.tag;
+    if(tag&&tag.visible){const dz=b.obj.position.z-sq.z; // 부대가 지나친(공격/선택 구간 밖) 보상 라벨은 숨김
+      if(dz>-1.0)tag.visible=false;}
     if(b.remove)scene.remove(b.obj);}
   // projectiles
   for(const p of [...G.projs]){
