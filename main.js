@@ -62,7 +62,7 @@ const CFG={
   stageLen:55,
 };
 const CLASSES={
-  Knight:{u:'Knight.glb',s:0.47,dmg:6,cd:0.9,range:9.5,kind:'bolt',color:0xffe27a,hitEfk:'suzsword',fxScale:0.15,fxSpeed:2.2,anim:'1H_Melee_Attack_Stab',w:{slot:'handslotr',u:'weapons/spear_A.gltf'}},
+  Knight:{u:'Knight.glb',s:0.47,dmg:6,cd:0.9,range:9.5,kind:'bolt',color:0xffe27a,hitEfk:'hit',fxScale:0.30,fxSpeed:1.6,anim:'1H_Melee_Attack_Stab',w:{slot:'handslotr',u:'weapons/spear_A.gltf'}},
   Barbarian:{u:'Barbarian.glb',s:0.40,dmg:14,cd:1.25,range:9.5,kind:'wave',color:0xff7a2a,hitEfk:'ember',fxScale:0.10,fxSpeed:1.9,anim:'2H_Melee_Attack_Spin'},
   Rogue:{u:'Rogue.glb',s:0.47,dmg:4,cd:0.55,range:10.5,kind:'shard',color:0x9fdcff,hitEfk:'cold',fxScale:0.15,fxSpeed:2.2,anim:'2H_Ranged_Shoot',w:{slot:'handslotl',u:'weapons/bow_A_withString.gltf'}},
   Mage:{u:'Mage.glb',s:0.38,dmg:9,cd:1.15,range:10.5,kind:'fire',color:0xff7a2a,hitEfk:'flame',fxScale:0.15,fxSpeed:2.4,anim:'Spellcast_Shoot',w:{slot:'handslotr',u:'weapons/wand.gltf'}},
