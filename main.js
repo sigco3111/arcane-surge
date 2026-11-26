@@ -327,7 +327,7 @@ function fireVolley(c,n,gr){ // 일제사격 1회: gr.s갈래 부채꼴, 인원�
     spawnVolleyBolt(c,gr,from,ang,perDmg,n);
   }
   if(gr.aux>0)for(let i=0;i<gr.aux;i++)spawnAuxBolt(c,from,perDmg*0.6);
-  efkPlay(c.hitEfk||'hit',from,0.15,2.0); // 발사구 섬광: 발사→궤적→명중 연결의 시작점
+  efkPlay('hit',from,0.15,2.2); // 발사구 섬광: 잔여 없는 짧은 플래시로 통일(ember류 잔여 화염 방지)
   for(const u of G.allies)playOnce(u,c.anim,'Walking_A');
 }
 function spawnVolleyBolt(c,gr,from,ang,dmg,n){
@@ -342,9 +342,9 @@ function spawnVolleyBolt(c,gr,from,ang,dmg,n){
   const maxDist=c.kind==='wave'?(gr.wave||4):c.range+3.5;
   const p={mesh:grp,target:null,owner:{cfg:c,fxT:0},dmg,speed:spd,kind:c.kind,color:c.color,hitEfk:c.hitEfk||'hit',
     fx0:from.x,fz0:from.z,vel,maxDist,traveled:0,pierce:c.kind==='wave'?99:gr.pierce,hitSet:new Set(),aoe:gr.aoe||0,knock:c.kind==='wave'?gr.knock:1,waveRad:c.kind==='wave'?0.55*gr.waveW:0};
-  const TRAIL={bolt:'suzsword',wave:'ember',shard:'cold',fire:'fireball'}; // 병종별 궤적(기존 effekseer 에셋)
+  const TRAIL={bolt:'suzsword',shard:'cold',fire:'fireball'}; // 병종별 궤적(기존 effekseer 에셋). wave는 파동 메시가 곧 형태 — ember 잔여 화염으로 제외
   const TSC={bolt:0.11,wave:0.07,shard:0.09,fire:0.18}; // 궤적은 작게·빠르게 — 입자 덩어리가 공격 형태를 가리지 않도록
-  const tId=TRAIL[c.kind];if(tId)p.efkH=efkPlay(tId,from,TSC[c.kind],1.6);
+  const tId=TRAIL[c.kind];if(tId)p.efkH=efkPlay(tId,from,TSC[c.kind],2.0);
   G.projs.push(p);G.statB++;
 }
 function spawnAuxBolt(c,from,dmg){ // 후드 특성: 유도 보조탄 — 적만 추적(블록·감옥 무시)
