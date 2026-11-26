@@ -104,9 +104,22 @@ const GROWTH={ // 탄수 초반 가속(사용자 07:44 "5명까지 탄 수"·매
 const REF_S={Knight:[0,1,1,1,2,2,3,3,3,4,4,5,5,5,6,6,7],Rogue:[0,1,1,1,1,1,2,2,2,3,3,3,3,3,4,4,5],Mage:[0,1,1,1,1,1,2,2,2,2,2,3,3,3,4,4,5],Barbarian:[0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],Rogue_Hooded:[0,1,1,1,2,2,2,3,3,3,3,4,4,4,5,5,5]}; // 정규화 기준: 이전 탄수 곡선(총화력 유지용)
 function fxTier(){const p=G.dmgMul*(growth(G.cls,G.allies.length).dmg||1);return p>=3?3:p>=1.6?2:1;} // 성장형 타격FX 단계(가값 임계치 — 단계 비교 검증 후 조정)
 function growth(cls,n){const g={...GROWTH_DEF};for(const [k,v] of (GROWTH[cls]||[]))if(n>=k)Object.assign(g,v);return g;}
-const CAPTIVE_CYCLE=['Mage','Rogue','Barbarian','Rogue_Hooded']; // 구출 감옥 순환(현재 병종 제외는 스폰 시 결정)
-const EXTRA_CYCLE=['Rogue_Hooded','Mage','Knight','Barbarian'];
-const CLS_KO={Knight:'나이트',Barbarian:'바바리안',Rogue:'로그',Mage:'메이지',Rogue_Hooded:'후드 로그'};
+const CAPTIVE_CYCLE=['Mage','Rogue','Barbarian','Rogue_Hooded','Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism','Artillery']; // 구출 감옥 순환(현재 병종 제외는 스폰 시 결정)
+const EXTRA_CYCLE=['Rogue_Hooded','Mage','Knight','Barbarian','Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism','Artillery'];
+// ---- 7개 신규 병종(제안서 12종 중 신규): 모델은 기존 5종 재사용(무기·색만 다름), 공격 방식은 고유 ----
+const _B=(b,o)=>({...CLASSES[b],...o});
+CLASSES.Ranger=_B('Rogue',{kind:'spread',dmg:7,cd:1.0,range:6.5,color:0x8fe08a,hitEfk:'hit',fxScale:0.11,fxSpeed:2.6,maxD:6.5});
+CLASSES.Glaive=_B('Barbarian',{kind:'boomerang',dmg:8,cd:1.4,range:10,color:0xffc84a,hitEfk:'hit',fxScale:0.12,fxSpeed:2.4,anim:'2H_Melee_Attack_Slice'});
+CLASSES.Sorcerer=_B('Mage',{kind:'chain',dmg:6,cd:1.1,range:10,color:0xbfe6ff,hitEfk:'hit',fxScale:0.14,fxSpeed:2.6});
+CLASSES.FrostLancer=_B('Knight',{kind:'lance',dmg:5,cd:0.8,range:15,color:0x7fd8ff,hitEfk:'cold',fxScale:0.11,fxSpeed:2.6});
+CLASSES.Pyro=_B('Mage',{kind:'flame',dmg:3,cd:0.3,range:4,color:0xff8a2a,hitEfk:'hit',fxScale:0.1,fxSpeed:2.6});
+CLASSES.Prism=_B('Rogue_Hooded',{kind:'beam',dmg:2.2,cd:0.25,range:16,color:0xe6c8ff,hitEfk:'hit',fxScale:0.1,fxSpeed:2.6,homing:false});
+CLASSES.Artillery=_B('Barbarian',{kind:'lob',dmg:9,cd:1.8,range:13,color:0xffd27a,hitEfk:'hit',fxScale:0.14,fxSpeed:2.4,anim:'2H_Melee_Attack_Chop'});
+for(const k of ['Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism','Artillery'])GROWTH[k]=[[8,{dmg:1.2}],[12,{dmg:1.4}],[16,{dmg:1.6}]];
+const SPECIAL_KINDS=new Set(['boomerang','chain','lance','flame','beam','lob']);
+
+const CLS_KO2={Ranger:'레인저',Glaive:'글레이브',Sorcerer:'소서러',FrostLancer:'프로스트 랜서',Pyro:'파이로',Prism:'프리즘 사수',Artillery:'포격수'};
+const CLS_KO={...CLS_KO2,Knight:'나이트',Barbarian:'바바리안',Rogue:'로그',Mage:'메이지',Rogue_Hooded:'후드 로그'};
 const FOES={
   Warrior:{u:'Skeleton_Warrior.glb',hp:26,spd:1.35,s:0.56,rr:0.6},
   Minion:{u:'Skeleton_Minion.glb',hp:16,spd:2.05,s:0.56,rr:0.5},
@@ -336,7 +349,9 @@ function fireVolley(c,n,gr){ // 일제사격 1회: gr.s갈래 부채꼴, 인원�
   const tp=t.obj.position.clone();tp.y=0.8;
   const base=Math.atan2(tp.x-from.x,-(tp.z-from.z)); // 전방 0 기준 좌우 각
   const fan=(gr.fan||0)*Math.PI/180;
-  const perDmg=c.dmg*G.dmgMul*gr.dmg*(0.7+0.3*n)*(c.kind==='wave'?(REF_S[G.cls][Math.max(1,Math.min(16,n))]||1):((REF_S[G.cls][Math.max(1,Math.min(16,n))]||1)/gr.s)); // wave는 분할 감쇠 제외: 단일표적 회귀 방지(야만 중반 움푹 수정), 다갈래는 성장 체감으로 // 인원 → 발당 피해 환산, 탄수 증가분은 기존 곡선(REF_S)으로 정규화해 총화력 유지(초안 계수)
+  const perDmg=c.dmg*G.dmgMul*gr.dmg*(0.7+0.3*n)*(c.kind==='wave'?((REF_S[G.cls]||REF_S.Knight)[Math.max(1,Math.min(16,n))]||1):(((REF_S[G.cls]||REF_S.Knight)[Math.max(1,Math.min(16,n))]||1)/gr.s)); // wave는 분할 감쇠 제외: 단일표적 회귀 방지(야만 중반 움푹 수정), 다갈래는 성장 체감으로 // 인원 → 발당 피해 환산, 탄수 증가분은 기존 곡선(REF_S)으로 정규화해 총화력 유지(초안 계수)
+  if(SPECIAL_KINDS.has(c.kind)){fireSpecial(c,gr,t,from,tp,perDmg,n);for(const u of G.allies)playOnce(u,c.anim,'Walking_A');return;}
+  if(c.kind==='spread'){const half=14*Math.PI/180;G.statV+=0;for(let i=0;i<7;i++){const ang=base+(i/6-0.5)*2*half;spawnVolleyBolt(c,{...gr,s:7},from,ang,perDmg*0.45,n,true);}efkPlay('hit',from,0.15,2.2);for(const u of G.allies)playOnce(u,c.anim,'Walking_A');return;}
   const dzT=Math.max(0.5,from.z-tp.z),angMax=Math.atan2(corridorW(dzT),dzT); // 탄 궤적이 사선대를 벗어나지 않게 발사각 제한
   for(let i=0;i<gr.s;i++){
     let off=gr.s>1?(i/(gr.s-1)-0.5)*fan:0;
@@ -349,21 +364,22 @@ function fireVolley(c,n,gr){ // 일제사격 1회: gr.s갈래 부채꼴, 인원�
   efkPlay('hit',from,0.15,2.2); // 발사구 섬광: 잔여 없는 짧은 플래시로 통일(ember류 잔여 화염 방지)
   for(const u of G.allies)playOnce(u,c.anim,'Walking_A');
 }
-function spawnVolleyBolt(c,gr,from,ang,dmg,n){
+function spawnVolleyBolt(c,gr,from,ang,dmg,n,wide){
   const grp=new THREE.Group();let mesh;
   if(c.kind==='fire'){mesh=new THREE.Mesh(new THREE.SphereGeometry(0.12,10,10),new THREE.MeshBasicMaterial({color:0xffe0a0}));grp.add(mesh);}
   else if(c.kind==='wave'){mesh=new THREE.Mesh(new THREE.BoxGeometry(0.5*gr.waveW,0.55,0.35),new THREE.MeshBasicMaterial({color:c.color,transparent:true,opacity:0.55}));grp.add(mesh);}
-  else if(c.kind==='shard'){mesh=new THREE.Mesh(new THREE.ConeGeometry(0.13,0.8,6),new THREE.MeshBasicMaterial({color:c.color}));mesh.rotation.x=-Math.PI/2;grp.add(mesh);grp.add(glowSprite(c.color,0.55));}
+  else if(c.kind==='shard'||c.kind==='spread'){mesh=new THREE.Mesh(new THREE.ConeGeometry(0.13,0.8,6),new THREE.MeshBasicMaterial({color:c.color}));mesh.rotation.x=-Math.PI/2;grp.add(mesh);grp.add(glowSprite(c.color,0.55));}
   else{mesh=new THREE.Mesh(new THREE.OctahedronGeometry(0.16),new THREE.MeshBasicMaterial({color:c.color}));mesh.scale.set(0.7*(gr.big?1.7:1),0.7*(gr.big?1.7:1),1.8*(gr.big?1.4:1));grp.add(mesh);}
   grp.position.copy(from);grp.rotation.y=ang;scene.add(grp);
   const spd=c.kind==='wave'?26:PSPD;
   const vel=new THREE.Vector3(Math.sin(ang),0,-Math.cos(ang)).multiplyScalar(spd);
-  const maxDist=c.kind==='wave'?(gr.wave||4):c.range+3.5;
+  const maxDist=c.kind==='wave'?(gr.wave||4):(c.maxD||c.range+3.5);
   const p={mesh:grp,target:null,owner:{cfg:c,fxT:0},dmg,speed:spd,kind:c.kind,color:c.color,hitEfk:c.hitEfk||'hit',
     fx0:from.x,fz0:from.z,vel,maxDist,traveled:0,pierce:c.kind==='wave'?99:gr.pierce,hitSet:new Set(),aoe:gr.aoe||0,knock:c.kind==='wave'?gr.knock:1,waveRad:c.kind==='wave'?0.55*gr.waveW:0};
   const TRAIL={bolt:'suzsword',shard:'cold',fire:'fireball'}; // 병종별 궤적(기존 effekseer 에셋). wave는 파동 메시가 곧 형태 — ember 잔여 화염으로 제외
   const TSC={bolt:0.11,wave:0.07,shard:0.09,fire:0.18}; // 궤적은 작게·빠르게 — 입자 덩어리가 공격 형태를 가리지 않도록
   const tId=TRAIL[c.kind];if(tId){p.efkH=efkPlay(tId,from,TSC[c.kind]*[1,1.25,1.4][fxTier()-1],2.0); /* 티어별 궤적 밀도(가값) */ if(p.efkH){try{p.efkH.setRotation(0,Math.atan2(vel.x,vel.z)+Math.PI/2,0);}catch(e){p.efkH=null;}}} // 궤적을 진행 방향으로 정렬(검 날 열이 진행축에 놓이도록 +90°)
+  if(wide)p.k=Math.tan(14*Math.PI/180)+0.08;
   G.projs.push(p);G.statB++;
 }
 function spawnAuxBolt(c,from,dmg){ // 후드 특성: 유도 보조탄 — 적만 추적(블록·감옥 무시)
@@ -377,6 +393,76 @@ function spawnAuxBolt(c,from,dmg){ // 후드 특성: 유도 보조탄 — 적만
   const pa={mesh:grp,target:best,owner:{cfg:c,fxT:0},dmg,speed:PSPD*0.8,kind:'aux',color:0xc79fff,hitEfk:'aura',fx0:from.x,fz0:from.z};
   pa.efkH=efkPlay('aura',from,0.11,1.4);G.projs.push(pa);
 }
+
+// ---------- 신규 병종 공격 + 자동 대형 마법 (제안서 12종, 총 폭 ≤ 3.6 규칙: 폭/반경/연쇄 범위 모두 포함) ----------
+const BIG_EVERY=20; // 처치 20마다 자동 대형 마법(직접 시전 없음) — 가값
+function foesAlive(){return G.enemies.filter(e=>e.hp>0&&e.deadT==null);}
+function lineFx(pts,color,ttl,w){const g=new THREE.BufferGeometry().setFromPoints(pts);const m=new THREE.LineBasicMaterial({color,transparent:true,opacity:1});const l=new THREE.Line(g,m);addFx(l,ttl);return l;}
+function slabFx(from,ang,len,wid,color,ttl,op=0.4){const m=new THREE.Mesh(new THREE.PlaneGeometry(wid,len),new THREE.MeshBasicMaterial({color,transparent:true,opacity:op,depthWrite:false,side:THREE.DoubleSide}));m.rotation.x=-Math.PI/2;m.rotation.z=ang;const c=new THREE.Group();c.add(m);m.position.set(0,0,-len/2);c.position.set(from.x,0.25,from.z);c.rotation.y=-ang;const e=addFx(c,ttl,false);e.slab=m;return e;}
+function fireSpecial(c,gr,t,from,tp,dmg,n){
+  const k=c.kind;G.statV++;
+  const base=Math.atan2(tp.x-from.x,-(tp.z-from.z));
+  const aimX=z=>from.x+Math.tan(base)*(from.z-z);
+  if(k==='boomerang'||k==='lance'){
+    const spd=k==='lance'?PSPD*1.7:PSPD*0.8;
+    const grp=new THREE.Group();let mesh;
+    if(k==='boomerang'){mesh=new THREE.Mesh(new THREE.TorusGeometry(0.42,0.1,6,14),new THREE.MeshBasicMaterial({color:c.color}));mesh.rotation.x=Math.PI/2;}
+    else{mesh=new THREE.Mesh(new THREE.ConeGeometry(0.1,1.6,6),new THREE.MeshBasicMaterial({color:c.color}));mesh.rotation.x=-Math.PI/2;grp.add(glowSprite(c.color,0.7));}
+    grp.add(mesh);grp.position.copy(from);grp.rotation.y=base;scene.add(grp);
+    const vel=new THREE.Vector3(Math.sin(base),0,-Math.cos(base)).multiplyScalar(spd);
+    const p={mesh:grp,target:null,owner:{cfg:c,fxT:0},dmg,speed:spd,kind:k,color:c.color,hitEfk:c.hitEfk,fx0:from.x,fz0:from.z,vel,maxDist:k==='boomerang'?c.range:c.range+1,traveled:0,pierce:99,hitSet:new Set(),aoe:0,knock:1,
+      waveRad:k==='boomerang'?0.8:0.5,boom:k==='boomerang',slow:k==='lance'?1.6:0};
+    if(k==='lance')p.k=0.2;
+    G.projs.push(p);G.statB++;return;}
+  if(k==='chain'){
+    const pts=[from.clone()];const first=t;const hit=[first];
+    const hp=first.obj.position.clone();hp.y=0.9;pts.push(hp);damage(first,dmg);efkPlay('hit',hp,0.18,2.2);
+    let last=first;
+    for(let h=0;h<3;h++){let best=null,bd=1e9;
+      for(const e of foesAlive()){if(hit.includes(e))continue;const p=e.obj.position;if(p.z>from.z-0.3)continue;
+        if(Math.abs(p.x-aimX(p.z))>1.5)continue; // 연쇄는 조준선 ±1.5 안에서만 — 총 폭 3.0
+        const d=Math.hypot(p.x-last.obj.position.x,p.z-last.obj.position.z);if(d<=1.5&&d<bd){bd=d;best=e;}}
+      if(!best)break;hit.push(best);const q=best.obj.position.clone();q.y=0.9;pts.push(q);damage(best,dmg*0.6);efkPlay('hit',q,0.14,2.2);last=best;}
+    lineFx(pts,0xbfe6ff,0.22);return;}
+  if(k==='flame'){
+    const len=c.range;slabFx(from,base,len,2.4,0xff7a2a,0.28,0.35);
+    for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)]){const p=o.obj.position;const dz=from.z-p.z;if(dz<=0||dz>len)continue;if(Math.abs(p.x-aimX(p.z))>1.2)continue;damage(o,dmg);}
+    for(let i=1;i<=2;i++){const q=new THREE.Vector3(aimX(from.z-i*1.6),0.5,from.z-i*1.6);efkPlay('flame',q,0.1,2.0);}return;}
+  if(k==='beam'){
+    const len=c.range;const e=slabFx(from,base,len,0.3,0xe6c8ff,0.14,0.85);
+    for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)]){const p=o.obj.position;const dz=from.z-p.z;if(dz<=0||dz>len)continue;if(Math.abs(p.x-aimX(p.z))>0.4)continue;damage(o,dmg);}return;}
+  if(k==='lob'){
+    const lead=t.kind==='foe'?(t.spd||t.cfg.spd||1)*0.75:0;
+    const to=new THREE.Vector3(tp.x,0.1,tp.z+lead);
+    const ball=new THREE.Mesh(new THREE.SphereGeometry(0.22,10,10),new THREE.MeshBasicMaterial({color:c.color}));ball.position.copy(from);scene.add(ball);
+    const mk=ring(0xffd27a,1.4,0.35);mk.position.set(to.x,0.1,to.z);scene.add(mk);
+    const dur=0.75;let el=0;G.q=G.q||[];
+    G.q.push({t:dur,step:(dt)=>{el+=dt;const u=Math.min(1,el/dur);ball.position.set(from.x+(to.x-from.x)*u,1.0+(to.y-1.0)*u+3.2*Math.sin(Math.PI*u),from.z+(to.z-from.z)*u);},
+      fn:()=>{scene.remove(ball);scene.remove(mk);const rm=ring(0xff9a4a,1.4,0.6);rm.position.set(to.x,0.12,to.z);addFx(rm,0.35);
+        efkPlay('hit',new THREE.Vector3(to.x,0.6,to.z),0.28,2.0);
+        for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)])if(Math.hypot(o.obj.position.x-to.x,o.obj.position.z-to.z)<=1.4)damage(o,dmg);}});return;}
+}
+let BIGI=0;
+function castBig(which){
+  const kinds=['tornado','meteo','thunder'];const kind=which||kinds[BIGI++%3];
+  const sq=G.squad.position;const dm=G.dmgMul*(1+0.04*G.level);G.q=G.q||[];
+  const KO={tornado:'토네이도',meteo:'메테오',thunder:'번개'};
+  const l=labelSprite('대형 마법: '+KO[kind],'#ffe9a8',3.0);l.position.set(sq.x,3.2,sq.z-2);addFx(l,1.4);
+  const alive=foesAlive().filter(e=>e.obj.position.z<sq.z-0.5&&e.obj.position.z>sq.z-16).sort((a,b)=>b.obj.position.z-a.obj.position.z);
+  if(kind==='tornado'){
+    const pos={x:sq.x,z:sq.z-3};const h=efkPlay('tornade',new THREE.Vector3(pos.x,0,pos.z),0.12,1.2);let tk=0;
+    G.q.push({t:3.0,step:(dt)=>{pos.z-=3.0*dt;tk+=dt;if(h){try{h.setLocation(pos.x,0,pos.z);}catch(e){}}
+      if(tk>=0.25){tk=0;for(const o of [...foesAlive()])if(Math.hypot(o.obj.position.x-pos.x,o.obj.position.z-pos.z)<=1.3)damage(o,5*dm);}},fn:()=>{if(h){try{h.stop();}catch(e){}}}});
+  }else if(kind==='meteo'){
+    const tg=alive.slice(0,3);if(!tg.length)tg.push({obj:{position:new THREE.Vector3(sq.x,0,sq.z-6)}});
+    tg.forEach((e,i)=>G.q.push({t:0.25+i*0.4,fn:()=>{const p=e.obj.position;const q=new THREE.Vector3(p.x,0,p.z);efkPlay('meteo',q,0.14,1.3);
+      G.q.push({t:0.5,fn:()=>{const rm=ring(0xff7a2a,1.4,0.6);rm.position.set(q.x,0.12,q.z);addFx(rm,0.4);for(const o of foesAlive())if(Math.hypot(o.obj.position.x-q.x,o.obj.position.z-q.z)<=1.4)damage(o,14*dm);}});}}));
+  }else{
+    const tg=alive.slice(0,5);
+    tg.forEach((e,i)=>G.q.push({t:0.12+i*0.14,fn:()=>{if(e.hp<=0)return;const p=e.obj.position;efkPlay('thunder',new THREE.Vector3(p.x,0,p.z),0.2,1.6);damage(e,9*dm);}}));
+  }
+}
+window.__big=k=>castBig(k);window.__cls=()=>Object.keys(CLASSES);
 function nearestTarget(unit){
   const wp=unit.obj.getWorldPosition(new THREE.Vector3());
   let best=null,bd=1e9;
@@ -444,7 +530,7 @@ function damage(t,d){
 }
 function killUnit(t){
   if(t.kind==='foe'){
-    G.kills++;G.combo++;G.comboT=4.0; // 콤보 창(시제품 4.0초, 계측 후 조정)
+    G.kills++;if(G.kills%BIG_EVERY===0)castBig();G.combo++;G.comboT=4.0; // 콤보 창(시제품 4.0초, 계측 후 조정)
     if(G.combo>=2){const tier=G.combo>=25?'#ff5a4a':G.combo>=10?'#ff9a3c':G.combo>=5?'#ffd966':'#ffffff'; // 콤보는 우측 상단 카운터에 통합(사용자 10:29) — 평소 작게, 누적 순간만 짧고 날카롭게
       const cb=$('combo');cb.style.setProperty('--cc',tier);cb.querySelector('.cbn').textContent='\u00d7'+G.combo;
       cb.classList.add('on');cb.classList.remove('hit','hit5');void cb.offsetWidth;cb.classList.add(G.combo%5===0?'hit5':'hit');}
@@ -580,7 +666,10 @@ async function efkInit(){
                ['toonhit','./assets/effekseer/effects/tktk/ToonHit.efk'],
                ['featherbomb','./assets/effekseer/effects/pierre-2/FeatherBomb.efk'],
                ['bene','./assets/effekseer/effects/pierre-2/Benediction.efk'],
-               ['powerup','./assets/effekseer/effects/nextsoft/PowerUp.efk']];
+               ['powerup','./assets/effekseer/effects/nextsoft/PowerUp.efk'],
+               ['tornade','./assets/effekseer/effects/nextsoft/MagicTornade.efk'],
+               ['meteo','./assets/effekseer/effects/nextsoft/MagicMeteo.efk'],
+               ['thunder','./assets/effekseer/effects/nextsoft/MagicThunder.efk']];
   await Promise.all(loads.map(([id,url])=>new Promise((res,rej)=>{
     const e=ctx.loadEffect(url,1,()=>res(),(w,p)=>rej(new Error(url+' '+w+' '+(p||'')))); // onload는 인자 없음 → 반환값 사용
     eff[id]=e;})));
@@ -659,7 +748,7 @@ function update(dt){
       if(e.deadT<=0){scene.remove(e.obj);G.enemies.splice(G.enemies.indexOf(e),1);
         if(e.isBoss)G.boss=null;}
       continue;}
-    e.obj.position.z+=(e.spd||e.cfg.spd)*dt;
+    e.obj.position.z+=(e.spd||e.cfg.spd)*dt*(e.slowT>0?0.5:1);if(e.slowT>0)e.slowT-=dt;
     if(e.hitT>0)e.hitT-=dt;
     if(e.obj.position.z>sq.z+CFG.defLine){ // 방어선 돌파
       if(e.isBoss){endGame(false);return;} // 보스 돌파는 즉시 패배
@@ -686,12 +775,17 @@ function update(dt){
     if(b.remove)scene.remove(b.obj);}
   // projectiles
   for(const p of [...G.projs]){
+    if(p.vel&&p.boom){p.mesh.rotation.y+=dt*18;
+      if(!p.back&&p.traveled+p.speed*dt>=p.maxDist){p.back=true;p.hitSet.clear();p.maxDist=1e9;}
+      if(p.back){const dx=sq.x-p.mesh.position.x,dz2=(sq.z-0.6)-p.mesh.position.z,dl=Math.hypot(dx,dz2);
+        if(dl<0.6){scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);continue;}
+        p.vel.set(dx/dl*p.speed,0,dz2/dl*p.speed);}}
     if(p.vel){ // 직사탄: 직진하며 경로상의 첫 대상에 명중, 사거리 끝에서 소멸
       const step=p.speed*dt;const px0=p.mesh.position.x,pz0=p.mesh.position.z;
       p.mesh.position.addScaledVector(p.vel,dt);p.traveled+=step;
       if(p.efkH){try{p.efkH.setLocation(p.mesh.position.x,p.mesh.position.y,p.mesh.position.z);}catch(e){p.efkH=null;}}
       const dzB=p.fz0-p.mesh.position.z; // 사선대 이탈 탄은 경계에서 소멸 — 발사 시점 원점 기준(부대 이동 중 돌발 소멸 방지)
-      if(dzB>0&&Math.abs(p.mesh.position.x-p.fx0)>corridorW(dzB)+0.05){G.statX++;if(p.efkH){try{p.efkH.stop();}catch(e){}p.efkH=null;}
+      if(!p.boom&&dzB>0&&Math.abs(p.mesh.position.x-p.fx0)>(p.k!=null?0.6+dzB*p.k:corridorW(dzB))+0.05){G.statX++;if(p.efkH){try{p.efkH.stop();}catch(e){}p.efkH=null;}
         scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);continue;}
       const ux=p.vel.x/p.speed,uz=p.vel.z/p.speed; // 이동 선분 기준 최근접 판정(고속 관통 방지)
       let hit=null,bhd=1e9;
@@ -702,6 +796,7 @@ function update(dt){
       if(!hit)for(const b of G.blocks)if(b.hp>0)seg(b,p.waveRad?p.waveRad+0.1:0.7);
       if(hit){G.statH++;const hp2=hit.obj.position.clone();hp2.y=0.8;
         if(G.fxT<=0){efkPlay(p.hitEfk||'hit',hp2,(p.owner.cfg.fxScale||0.4)*(fxTier()>=2?1.3:1),p.owner.cfg.fxSpeed||1.4);G.fxT=0.25;} // 2단계~ 명중 섬광 확대(가값)
+        if(p.slow&&hit.kind==='foe')hit.slowT=p.slow;
         if(p.knock>1&&hit.kind==='foe')hit.obj.position.z-=0.2*(p.knock-1); // 충격파 넉백(보임이 성장 체감)
         damage(hit,p.dmg);
         if(p.aoe>0){ // 메이지 폭발: 링=실제 피해 영역
@@ -730,6 +825,8 @@ function update(dt){
     }else{p.mesh.position.addScaledVector(d.normalize(),step);
       if(p.efkH){try{p.efkH.setLocation(p.mesh.position.x,p.mesh.position.y,p.mesh.position.z);}catch(e){p.efkH=null;}}}
   }
+  // 포격·대형 마법 예약 이벤트
+  if(G.q&&G.q.length)for(const ev of [...G.q]){ev.t-=dt;if(ev.step)ev.step(dt,ev);if(ev.t<=0){G.q.splice(G.q.indexOf(ev),1);if(ev.fn)ev.fn();}}
   // fx
   for(const f of [...fx]){f.t-=dt;
     if(f.vel){f.vel.y+=(f.grav||0)*dt;f.obj.position.addScaledVector(f.vel,dt);}
@@ -747,3 +844,4 @@ function update(dt){
   $('fps').textContent=Math.round(fpsEMA)+' fps · 초안';
 }
 init().catch(e=>{console.error(e);window.__err=String(e.stack||e);});
+window.__spawn=async(type,x,dz)=>{await spawnFoe(type,x,G.squad.position.z-dz,false,null);return 1;}; // 테스트 훅
