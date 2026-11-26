@@ -427,8 +427,9 @@ function killUnit(t){
   if(t.kind==='foe'){
     G.kills++;G.combo++;G.comboT=4.0; // 콤보 창(시제품 4.0초, 계측 후 조정)
     if(G.combo>=2){const tier=G.combo>=25?['#ff5a4a',64]:G.combo>=10?['#ff9a3c',56]:G.combo>=5?['#ffd966',48]:['#ffffff',40]; // 강한 콤보 강조는 화면좌표 HUD 1개로(월드 팝 제거 — 적 머리 위 개별 피해수와 역할 분리)
-      const el=$('cbig');el.textContent='\u00d7'+G.combo;el.style.setProperty('--cbg',tier[0]);el.style.fontSize=tier[1]+'px';
-      el.classList.remove('pop');void el.offsetWidth;el.classList.add('pop');}
+      const big=G.combo%5===0; // 5의 배수만 대형 팝 — 매 처치 대형 점멸 피로 방지, 일반은 소형 틱
+      const el=$('cbig');el.textContent='\u00d7'+G.combo;el.style.setProperty('--cbg',tier[0]);el.style.fontSize=(big?tier[1]:30)+'px';
+      el.classList.remove('pop','tick');void el.offsetWidth;el.classList.add(big?'pop':'tick');}
     const TITLES={25:'연전연승',50:'파죽지세',100:'천하무적'};
     if(TITLES[G.combo]){const l=labelSprite(TITLES[G.combo]+' ×'+G.combo,'#ffd966',3.6);l.position.set(G.squad.position.x,3.6,G.squad.position.z-6);addFx(l,1.6);}
     const dp=t.obj.position.clone();dp.y=0.9;efkPlay(t.isBoss?'featherbomb':'toonhit',dp,t.isBoss?0.40:0.22,1.8);
