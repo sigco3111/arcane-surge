@@ -722,9 +722,10 @@ function update(dt){
   G.squad.position.x+=(G.x-G.squad.position.x)*Math.min(1,dt*10);
   const sq=G.squad.position;
   { // 가이드: 사선대 경계 2줄 — corridorW와 같은 식(보이는 범위=실제 타격 범위)
-    const k=corridorK();const len=CLASSES[G.cls].range+3.5;const gAng=Math.atan(k);
+    let k=corridorK();const len=CLASSES[G.cls].range+3.5;const hE=envHalf(G.cls,growth(G.cls,G.allies.length));let x0=0.6;if(0.6+k*len>hE){k=0;x0=hE;} // 고정 총 폭 상자에 닿으면 평행선: 표시 = 실제 최대 타격 폭
+    const gAng=Math.atan(k);
     for(const [m,sgn] of [[G.guideL,-1],[G.guideR,1]]){
-      m.position.set(sq.x+sgn*(0.6+k*len/2),0.06,sq.z-0.6-len/2);
+      m.position.set(sq.x+sgn*(x0+k*len/2),0.06,sq.z-0.6-len/2);
       m.rotation.z=-sgn*gAng;
       m.scale.y=(len*Math.sqrt(1+k*k))/11;}
   }
