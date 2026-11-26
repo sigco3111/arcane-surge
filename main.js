@@ -31,7 +31,7 @@ function findNode(root,pat){let hit=null;root.traverse(o=>{if(!hit&&pat.test(nor
 function hideWeapons(root){root.traverse(o=>{if(o.isMesh&&/sword|shield|dagger|axe|staff|bow|crossbow|wand|spear|quiver|spellbook|knife|mug/.test(norm(o.name)))o.visible=false;});}
 function labelSprite(text,color='#ffffff',w=2.2,ttl=1.4){
   const c=document.createElement('canvas');c.width=512;c.height=128;const g=c.getContext('2d');
-  g.font='700 54px Orbitron,"Noto Sans KR",sans-serif';g.textAlign='center';g.textBaseline='middle';
+  g.font='700 54px Orbitron,Pretendard,"Noto Sans KR",sans-serif';g.textAlign='center';g.textBaseline='middle';
   g.lineWidth=9;g.strokeStyle='rgba(0,0,0,0.8)';g.strokeText(text,256,64);g.fillStyle=color;g.fillText(text,256,64);
   const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;
   const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthWrite:false,depthTest:false}));
@@ -39,7 +39,7 @@ function labelSprite(text,color='#ffffff',w=2.2,ttl=1.4){
 
 function comboSprite(txt,color,w){ // 콤보 전용: 큰 볼드 + 색 글로우 + 팝 애니(기하·텍스트만, 자체 이펙트 아님)
   const c=document.createElement('canvas');c.width=512;c.height=160;const g=c.getContext('2d');
-  g.font='800 92px Orbitron,"Noto Sans KR",sans-serif';g.textAlign='center';g.textBaseline='middle';
+  g.font='800 92px Orbitron,Pretendard,"Noto Sans KR",sans-serif';g.textAlign='center';g.textBaseline='middle';
   g.shadowColor=color;g.shadowBlur=30;g.fillStyle=color;g.fillText(txt,256,80);g.shadowBlur=0; // 색 글로우 베이스
   g.lineWidth=18;g.strokeStyle='rgba(15,8,0,0.95)';g.strokeText(txt,256,80); // 검정 외곽선
   g.fillStyle='#ffffff';g.fillText(txt,256,80); // 마지막 패스: 불투명 흰 심지 — 색 덧칠 없음(황토 배경 대비)
@@ -55,7 +55,7 @@ function makeNumSprite(n){ // 블록 잔여 수치를 큰 숫자로 표시(원�
   drawNum(o,n);return o;}
 function drawNum(o,n,col){
   const g=o.c.getContext('2d');g.clearRect(0,0,256,256);
-  g.font='800 130px Orbitron,"Noto Sans KR",sans-serif';g.textAlign='center';g.textBaseline='middle';
+  g.font='800 130px Orbitron,Pretendard,"Noto Sans KR",sans-serif';g.textAlign='center';g.textBaseline='middle';
   g.lineWidth=16;g.strokeStyle='rgba(0,0,0,0.85)';g.strokeText(String(n),128,134);g.fillStyle=col||'#ffffff';g.fillText(String(n),128,134);
   o.tex.needsUpdate=true;}
 
