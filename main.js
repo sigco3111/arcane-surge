@@ -40,9 +40,9 @@ function labelSprite(text,color='#ffffff',w=2.2,ttl=1.4){
 function comboSprite(txt,color,w){ // 콤보 전용: 큰 볼드 + 색 글로우 + 팝 애니(기하·텍스트만, 자체 이펙트 아님)
   const c=document.createElement('canvas');c.width=512;c.height=160;const g=c.getContext('2d');
   g.font='800 92px "Noto Sans KR", sans-serif';g.textAlign='center';g.textBaseline='middle';
-  g.lineWidth=18;g.strokeStyle='rgba(15,8,0,0.95)';g.strokeText(txt,256,80);
-  g.shadowColor=color;g.shadowBlur=26;g.fillStyle='#ffffff';g.fillText(txt,256,80);
-  g.shadowBlur=0;g.fillStyle=color;g.globalAlpha=0.55;g.fillText(txt,256,80);g.globalAlpha=1; // 흰 심지+색 광택: 황토 배경에서도 대비 확보
+  g.shadowColor=color;g.shadowBlur=30;g.fillStyle=color;g.fillText(txt,256,80);g.shadowBlur=0; // 색 글로우 베이스
+  g.lineWidth=18;g.strokeStyle='rgba(15,8,0,0.95)';g.strokeText(txt,256,80); // 검정 외곽선
+  g.fillStyle='#ffffff';g.fillText(txt,256,80); // 마지막 패스: 불투명 흰 심지 — 색 덧칠 없음(황토 배경 대비)
   const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthWrite:false,depthTest:false}));
   sp.scale.set(w,w*0.3125,1);return sp;}
@@ -344,7 +344,7 @@ function spawnVolleyBolt(c,gr,from,ang,dmg,n){
     fx0:from.x,fz0:from.z,vel,maxDist,traveled:0,pierce:c.kind==='wave'?99:gr.pierce,hitSet:new Set(),aoe:gr.aoe||0,knock:c.kind==='wave'?gr.knock:1,waveRad:c.kind==='wave'?0.55*gr.waveW:0};
   const TRAIL={bolt:'suzsword',shard:'cold',fire:'fireball'}; // 병종별 궤적(기존 effekseer 에셋). wave는 파동 메시가 곧 형태 — ember 잔여 화염으로 제외
   const TSC={bolt:0.11,wave:0.07,shard:0.09,fire:0.18}; // 궤적은 작게·빠르게 — 입자 덩어리가 공격 형태를 가리지 않도록
-  const tId=TRAIL[c.kind];if(tId)p.efkH=efkPlay(tId,from,TSC[c.kind],2.0);
+  const tId=TRAIL[c.kind];if(tId){p.efkH=efkPlay(tId,from,TSC[c.kind],2.0);if(p.efkH){try{p.efkH.setRotation(0,Math.atan2(vel.x,vel.z)+Math.PI/2,0);}catch(e){p.efkH=null;}}} // 궤적을 진행 방향으로 정렬(검 날 열이 진행축에 놓이도록 +90°)
   G.projs.push(p);G.statB++;
 }
 function spawnAuxBolt(c,from,dmg){ // 후드 특성: 유도 보조탄 — 적만 추적(블록·감옥 무시)
