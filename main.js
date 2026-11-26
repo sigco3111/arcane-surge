@@ -93,7 +93,7 @@ const CLASSES={
   Mage:{u:'Mage.glb',s:0.38,dmg:9,cd:1.15,range:10.5,kind:'fire',color:0xff7a2a,hitEfk:'flame',fxScale:0.11,fxSpeed:2.8,anim:'Spellcast_Shoot',w:{slot:'handslotr',u:'weapons/wand.gltf'}},
 };
 CLASSES.Rogue_Hooded={...CLASSES.Rogue,u:'Rogue_Hooded.glb',color:0xc79fff,hitEfk:'aura',homing:true,fxScale:0.13}; // 특수 유닛만 유도 탄(사용자 결정 20:02)
-const START_SQUAD=['Knight','Knight','Knight','Knight']; // 통일 부대(사용자 07:36): 시작 나이트 4명
+const START_SQUAD=['Knight']; // 시작 병력 1명(사용자 11-26 19:58 정정)
 // 매 인원 성장(시제품 수치 초안): [도달 인원, 변화] 누적 — 전 단계가 눈에 보이는 변화(탄 수/리듬/부채꼴/관통/폭/범위/특성)
 const GROWTH_DEF={s:1,burst:1,fan:0,pierce:3,rate:1,dmg:1,big:0,aoe:0,wave:0,waveW:1,knock:1,aux:0};
 const GROWTH={ // 탄수 초반 가속(사용자 07:44 "5명까지 탄 수"·매 1명 즉시 체감) — 총화력은 REF_S로 기존 곡선에 정규화
@@ -132,6 +132,9 @@ CLASSES.FrostLancer=_B('Knight',{kind:'lance',dmg:5,cd:0.8,range:15,color:0x7fd8
 CLASSES.Pyro=_B('Mage',{kind:'flame',dmg:3,cd:0.3,range:4,color:0xff8a2a,hitEfk:'hit',fxScale:0.1,fxSpeed:2.6});
 CLASSES.Prism=_B('Rogue_Hooded',{kind:'beam',dmg:2.2,cd:0.25,range:16,color:0xe6c8ff,hitEfk:'hit',fxScale:0.1,fxSpeed:2.6,homing:false});
 CLASSES.Artillery=_B('Barbarian',{kind:'lob',dmg:9,cd:1.8,range:13,color:0xffd27a,hitEfk:'hit',fxScale:0.14,fxSpeed:2.4,anim:'2H_Melee_Attack_Chop'});
+// 발사 간격 단축(사용자 11-26 19:59 "너무 띄엄띄엄" 정정): 원작 석궁 4발/초, 다른 무기 2.2~3.4발/초 수준으로 맞춤. 1발 피해는 간격 비율만큼 낮춰 초당 화력(DPS)은 유지
+const CD_NEW={Knight:0.25,Rogue:0.20,Rogue_Hooded:0.20,Mage:0.40,Barbarian:0.50,Ranger:0.40,Glaive:0.50,Sorcerer:0.40,FrostLancer:0.35,Artillery:0.60};
+for(const k in CD_NEW){const c=CLASSES[k];if(!c)continue;const r=CD_NEW[k]/c.cd;c.cd=CD_NEW[k];c.dmg*=r;}
 for(const k of ['Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism','Artillery'])GROWTH[k]=[[8,{dmg:1.2}],[12,{dmg:1.4}],[16,{dmg:1.6}]];
 for(const k in ENV)if(CLASSES[k]&&CLASSES[k].range!==ENV[k].r&&['Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism','Artillery'].includes(k))CLASSES[k].range=ENV[k].r;
 const SPECIAL_KINDS=new Set(['boomerang','chain','lance','flame','beam','lob']);
@@ -715,7 +718,7 @@ function tick(now){
   if(G.state==='play')update(dt);
   // camera follows squad
   cam.position.set(G.squad?G.squad.position.x*0.4:0,17,(G.squad?G.squad.position.z:0)+13.5);
-  cam.lookAt(G.squad?G.squad.position.x*0.3:0,0,(G.squad?G.squad.position.z:0)-6);
+  cam.lookAt(G.squad?G.squad.position.x*0.3:0,0,(G.squad?G.squad.position.z:0)-11);
   if(G.defLineMesh)G.defLineMesh.position.set(0,0.035,(G.squad?G.squad.position.z:0)+CFG.defLine);
   if(!NODRAW&&!window.__skipDraw){renderer.render(scene,cam);
   if(efk&&!NOFX){ // Effekseer 효과를 three 위에 같은 카메라로 그림
@@ -771,7 +774,7 @@ function update(dt){
   if(G.burstLeft>0){G.burstT-=dt;if(G.burstT<=0){fireVolley(c,n,gr);G.burstLeft--;G.burstT=0.09;}}
   else{G.vcd-=dt;
     if(G.vcd<=0&&squadTarget(c)){fireVolley(c,n,gr);if(gr.burst>1){G.burstLeft=gr.burst-1;G.burstT=0.09;}
-      G.vcd=Math.max(0.15,c.cd*gr.rate);}}
+      G.vcd=Math.max(0.08,c.cd*gr.rate);}}
   // 콤보 창
   if(G.comboT>0){G.comboT-=dt;
     if(G.comboT<=0){if(G.combo>=10){const l=labelSprite('연속 처치 ×'+G.combo+' 종료','#aab2bd',2.4);l.position.set(G.squad.position.x,3.1,G.squad.position.z-6);addFx(l,1.2);}G.combo=0;}}
