@@ -72,9 +72,9 @@ function glowSprite(color,w){ // 투사체 존재감용 소형 광원 스프라�
 function sparkBurst(color,s=1){ // 링 없는 명중 스파크: 방사형 짧은 선조(기하만 — 부모 10:42 승인 범위)
   const g=new THREE.Group();const mat=new THREE.MeshBasicMaterial({color,transparent:true,opacity:1,blending:THREE.AdditiveBlending,depthWrite:false});
   for(let i=0;i<8;i++){const a=i/8*Math.PI*2+Math.random()*0.3;const len=(0.4+Math.random()*0.25)*s;
-    const m=new THREE.Mesh(new THREE.BoxGeometry(0.035,0.035,len),mat);
+    const m=new THREE.Mesh(new THREE.BoxGeometry(0.042,0.042,len),mat);
     m.position.set(Math.sin(a)*0.26*s,0,Math.cos(a)*0.26*s);m.rotation.y=a;g.add(m);}
-  const up=new THREE.Mesh(new THREE.BoxGeometry(0.035,0.5*s,0.035),mat);g.add(up);
+  const up=new THREE.Mesh(new THREE.BoxGeometry(0.042,0.5*s,0.042),mat);g.add(up);
   g.userData.mat=mat;return g;}
 // 자체 제작 전투 이펙트(spark/burst/lightningFx)는 제거 — 전투 효과는 Effekseer 샘플만 사용
 
@@ -94,13 +94,15 @@ CLASSES.Rogue_Hooded={...CLASSES.Rogue,u:'Rogue_Hooded.glb',color:0xc79fff,hitEf
 const START_SQUAD=['Knight','Knight','Knight','Knight']; // 통일 부대(사용자 07:36): 시작 나이트 4명
 // 매 인원 성장(시제품 수치 초안): [도달 인원, 변화] 누적 — 전 단계가 눈에 보이는 변화(탄 수/리듬/부채꼴/관통/폭/범위/특성)
 const GROWTH_DEF={s:1,burst:1,fan:0,pierce:3,rate:1,dmg:1,big:0,aoe:0,wave:0,waveW:1,knock:1,aux:0};
-const GROWTH={
- Knight:[[4,{s:2}],[5,{burst:2}],[6,{s:3,fan:6}],[7,{pierce:4}],[8,{fan:9}],[9,{s:4}],[10,{big:1,dmg:1.3}],[11,{s:5}],[12,{pierce:6}],[13,{burst:3}],[14,{s:6}],[15,{pierce:99,dmg:1.6}],[16,{s:7}]],
- Rogue:[[4,{burst:2}],[5,{rate:0.8}],[6,{s:2}],[7,{burst:3}],[8,{rate:0.68}],[9,{s:3,fan:8}],[10,{burst:4,rate:0.62,dmg:1.2}],[11,{rate:0.50}],[12,{pierce:5}],[13,{burst:5}],[14,{s:4,fan:10}],[15,{rate:0.4,dmg:1.3}],[16,{s:5,fan:10}]], // 11 연사 보완(가값)
- Mage:[[4,{aoe:0.5}],[5,{aoe:0.7}],[6,{s:2,fan:10}],[7,{aoe:0.9}],[8,{aoe:1.0}],[9,{aoe:1.1}],[10,{pierce:2,dmg:1.3}],[11,{s:3,fan:14}],[12,{aoe:1.3}],[13,{aoe:1.4}],[14,{s:4,fan:16}],[15,{aoe:1.5,dmg:1.4}],[16,{s:5,fan:18}]], // 8·13 폭발 반경 보완(가값)
- Barbarian:[[4,{wave:5}],[5,{waveW:1.3}],[6,{wave:6.5}],[7,{knock:2}],[8,{waveW:1.6}],[9,{wave:8,dmg:1.1}],[10,{burst:2,dmg:1.3}],[11,{waveW:1.9,dmg:1.2}],[12,{wave:10,dmg:1.28}],[13,{knock:3}],[14,{waveW:2.4}],[15,{wave:12,dmg:1.4}],[16,{burst:3}]],
- Rogue_Hooded:[[4,{s:2}],[5,{burst:2}],[6,{rate:0.92}],[7,{s:3,fan:8}],[8,{rate:0.85}],[9,{dmg:1.15}],[10,{aux:1}],[11,{s:4,fan:10}],[12,{aux:2}],[13,{rate:0.72}],[14,{s:5,fan:10}],[15,{rate:0.62}],[16,{aux:3}]], // 6 연사·9 발당피해·15 연사 보완(가값)
+const GROWTH={ // 탄수 초반 가속(사용자 07:44 "5명까지 탄 수"·매 1명 즉시 체감) — 총화력은 REF_S로 기존 곡선에 정규화
+ Knight:[[4,{s:3}],[5,{s:4,burst:2}],[6,{s:5,fan:6}],[7,{s:6,pierce:4}],[8,{fan:9}],[9,{s:7}],[10,{big:1,dmg:1.3}],[11,{s:8}],[12,{pierce:6}],[13,{burst:3}],[14,{pierce:8}],[15,{pierce:99,dmg:1.6}],[16,{burst:4}]], // 탄수 우선(가값)
+ Rogue:[[4,{burst:2,s:2}],[5,{rate:0.8}],[6,{s:3}],[7,{burst:3}],[8,{rate:0.68}],[9,{s:4,fan:8}],[10,{burst:4,rate:0.62,dmg:1.2}],[11,{rate:0.50}],[12,{pierce:5,s:5}],[13,{burst:5}],[14,{fan:10}],[15,{rate:0.4,dmg:1.3,s:6}],[16,{fan:12}]], // 연사 우선(가값)
+ Mage:[[4,{s:2,aoe:0.5}],[5,{aoe:0.7}],[6,{fan:10}],[7,{s:3,aoe:0.9}],[8,{aoe:1.0}],[9,{aoe:1.1}],[10,{pierce:2,dmg:1.3}],[11,{fan:14}],[12,{s:4,aoe:1.3}],[13,{aoe:1.4}],[14,{s:5,fan:16}],[15,{aoe:1.5,dmg:1.4}],[16,{s:6,fan:18}]], // 폭발 우선(가값)
+ Barbarian:[[4,{wave:5}],[5,{waveW:1.3,s:2,fan:12}],[6,{wave:6.5}],[7,{knock:2}],[8,{waveW:1.6,s:3,fan:16}],[9,{wave:8,dmg:1.1}],[10,{burst:2,dmg:1.3}],[11,{waveW:1.9,dmg:1.2,s:4,fan:20}],[12,{wave:10,dmg:1.28}],[13,{knock:3}],[14,{waveW:2.4,s:5,fan:24}],[15,{wave:12,dmg:1.4}],[16,{burst:3}]], // 파동 우선(가값)
+ Rogue_Hooded:[[4,{s:2}],[5,{burst:2}],[6,{s:3,rate:0.92}],[7,{fan:8}],[8,{rate:0.85}],[9,{s:4,dmg:1.15}],[10,{aux:1}],[11,{fan:10}],[12,{s:5,aux:2}],[13,{rate:0.72}],[14,{dmg:1.1}],[15,{rate:0.62,s:6}],[16,{aux:3}]], // 혼합(가값)
 };
+const REF_S={Knight:[0,1,1,1,2,2,3,3,3,4,4,5,5,5,6,6,7],Rogue:[0,1,1,1,1,1,2,2,2,3,3,3,3,3,4,4,5],Mage:[0,1,1,1,1,1,2,2,2,2,2,3,3,3,4,4,5],Barbarian:[0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],Rogue_Hooded:[0,1,1,1,2,2,2,3,3,3,3,4,4,4,5,5,5]}; // 정규화 기준: 이전 탄수 곡선(총화력 유지용)
+function fxTier(){const p=G.dmgMul*(growth(G.cls,G.allies.length).dmg||1);return p>=3?3:p>=1.6?2:1;} // 성장형 타격FX 단계(가값 임계치 — 단계 비교 검증 후 조정)
 function growth(cls,n){const g={...GROWTH_DEF};for(const [k,v] of (GROWTH[cls]||[]))if(n>=k)Object.assign(g,v);return g;}
 const CAPTIVE_CYCLE=['Mage','Rogue','Barbarian','Rogue_Hooded']; // 구출 감옥 순환(현재 병종 제외는 스폰 시 결정)
 const EXTRA_CYCLE=['Rogue_Hooded','Mage','Knight','Barbarian'];
@@ -334,7 +336,7 @@ function fireVolley(c,n,gr){ // 일제사격 1회: gr.s갈래 부채꼴, 인원�
   const tp=t.obj.position.clone();tp.y=0.8;
   const base=Math.atan2(tp.x-from.x,-(tp.z-from.z)); // 전방 0 기준 좌우 각
   const fan=(gr.fan||0)*Math.PI/180;
-  const perDmg=c.dmg*G.dmgMul*gr.dmg*(0.7+0.3*n); // 인원 → 발당 피해 환산(초안 계수)
+  const perDmg=c.dmg*G.dmgMul*gr.dmg*(0.7+0.3*n)*((REF_S[G.cls][Math.max(1,Math.min(16,n))]||1)/gr.s); // 인원 → 발당 피해 환산, 탄수 증가분은 기존 곡선(REF_S)으로 정규화해 총화력 유지(초안 계수)
   const dzT=Math.max(0.5,from.z-tp.z),angMax=Math.atan2(corridorW(dzT),dzT); // 탄 궤적이 사선대를 벗어나지 않게 발사각 제한
   for(let i=0;i<gr.s;i++){
     const off=gr.s>1?(i/(gr.s-1)-0.5)*fan:0;
@@ -359,7 +361,7 @@ function spawnVolleyBolt(c,gr,from,ang,dmg,n){
     fx0:from.x,fz0:from.z,vel,maxDist,traveled:0,pierce:c.kind==='wave'?99:gr.pierce,hitSet:new Set(),aoe:gr.aoe||0,knock:c.kind==='wave'?gr.knock:1,waveRad:c.kind==='wave'?0.55*gr.waveW:0};
   const TRAIL={bolt:'suzsword',shard:'cold',fire:'fireball'}; // 병종별 궤적(기존 effekseer 에셋). wave는 파동 메시가 곧 형태 — ember 잔여 화염으로 제외
   const TSC={bolt:0.11,wave:0.07,shard:0.09,fire:0.18}; // 궤적은 작게·빠르게 — 입자 덩어리가 공격 형태를 가리지 않도록
-  const tId=TRAIL[c.kind];if(tId){p.efkH=efkPlay(tId,from,TSC[c.kind],2.0);if(p.efkH){try{p.efkH.setRotation(0,Math.atan2(vel.x,vel.z)+Math.PI/2,0);}catch(e){p.efkH=null;}}} // 궤적을 진행 방향으로 정렬(검 날 열이 진행축에 놓이도록 +90°)
+  const tId=TRAIL[c.kind];if(tId){p.efkH=efkPlay(tId,from,TSC[c.kind]*[1,1.25,1.4][fxTier()-1],2.0); /* 티어별 궤적 밀도(가값) */ if(p.efkH){try{p.efkH.setRotation(0,Math.atan2(vel.x,vel.z)+Math.PI/2,0);}catch(e){p.efkH=null;}}} // 궤적을 진행 방향으로 정렬(검 날 열이 진행축에 놓이도록 +90°)
   G.projs.push(p);G.statB++;
 }
 function spawnAuxBolt(c,from,dmg){ // 후드 특성: 유도 보조탄 — 적만 추적(블록·감옥 무시)
@@ -448,7 +450,7 @@ function killUnit(t){
     if(TITLES[G.combo]){const l=labelSprite(TITLES[G.combo]+' ×'+G.combo,'#ffd966',3.6);l.position.set(G.squad.position.x,3.6,G.squad.position.z-6);addFx(l,1.6);}
     const dp=t.obj.position.clone();dp.y=0.9;
     if(t.isBoss)efkPlay('featherbomb',dp,0.40,1.8);
-    else{if((G.sparkT||0)<=0){const sp=sparkBurst((CLASSES[G.cls]||{}).color||0xffe9a8,1.0);sp.position.copy(dp);const fe=addFx(sp,0.24,false);fe.grow=1;fe.spark=sp.userData.mat;G.sparkT=0.12;}} // 다중 동시 처치 피크 제한
+    else{const tier=fxTier();if((G.sparkT||0)<=0){const sp=sparkBurst((CLASSES[G.cls]||{}).color||0xffe9a8,tier>=2?1.35:1.15);sp.position.copy(dp);const fe=addFx(sp,0.24,false);fe.grow=1;fe.spark=sp.userData.mat;G.sparkT=0.12;}if(tier>=3&&(G.fx3T||0)<=0){efkPlay('featherbomb',dp,0.12,2.0);G.fx3T=0.15;}} // 다중 동시 처치 피크 제한 + 성장 티어(강타 소형 폭발은 비화염)
     if(G.kills%CFG.killsPerLevel===0){G.level++;G.dmgMul*=CFG.levelMul;
       {const rp=ring(0xffd966,1.2,0.8);rp.position.set(G.squad.position.x,0.12,G.squad.position.z);addFx(rp,0.6);} // 밝은 중심면 없는 얇은 고리 표시(비교빌드)
       const l=labelSprite('레벨 업!','#ffe27a',2.4);l.position.set(G.squad.position.x,2.6,G.squad.position.z-1);addFx(l,1.6);}
@@ -639,7 +641,7 @@ function update(dt){
   if(ahead2)setStage(G.stage+1); // 경계 전에 다음 구역 생성 — 잔적 정리와 다음 파도가 겹쳐 공백 제거
   // allies: 통일 부대 일제사격 — 탄 수/패턴은 성장 단계, 인원은 탄 1발 피해로 환산(설계 v2, 수치 초안)
   for(const u of G.allies)u.mixer.update(dt);
-  G.fxT=Math.max(0,G.fxT-dt);G.sparkT=Math.max(0,(G.sparkT||0)-dt);
+  G.fxT=Math.max(0,G.fxT-dt);G.sparkT=Math.max(0,(G.sparkT||0)-dt);G.fx3T=Math.max(0,(G.fx3T||0)-dt);
   const c=CLASSES[G.cls],n=G.allies.length,gr=growth(G.cls,n);
   if(G.burstLeft>0){G.burstT-=dt;if(G.burstT<=0){fireVolley(c,n,gr);G.burstLeft--;G.burstT=0.09;}}
   else{G.vcd-=dt;
@@ -697,7 +699,7 @@ function update(dt){
       for(const e of G.enemies)if(e.hp>0&&e.deadT==null&&!p.hitSet.has(e))seg(e,p.waveRad||0.6);
       if(!hit)for(const b of G.blocks)if(b.hp>0)seg(b,p.waveRad?p.waveRad+0.1:0.7);
       if(hit){G.statH++;const hp2=hit.obj.position.clone();hp2.y=0.8;
-        if(G.fxT<=0){efkPlay(p.hitEfk||'hit',hp2,p.owner.cfg.fxScale||0.4,p.owner.cfg.fxSpeed||1.4);G.fxT=0.25;}
+        if(G.fxT<=0){efkPlay(p.hitEfk||'hit',hp2,(p.owner.cfg.fxScale||0.4)*(fxTier()>=2?1.3:1),p.owner.cfg.fxSpeed||1.4);G.fxT=0.25;} // 2단계~ 명중 섬광 확대(가값)
         if(p.knock>1&&hit.kind==='foe')hit.obj.position.z-=0.2*(p.knock-1); // 충격파 넉백(보임이 성장 체감)
         damage(hit,p.dmg);
         if(p.aoe>0){ // 메이지 폭발: 링=실제 피해 영역
@@ -719,7 +721,7 @@ function update(dt){
       const dzA=p.fz0!=null?(p.fz0-p.mesh.position.z):(sq.z-0.6)-p.mesh.position.z; // 유도탄도 같은 사선대 판정(발사 원점 기준)
       const ax0=p.fx0!=null?p.fx0:sq.x;
       if(dzA>0&&Math.abs(p.mesh.position.x-ax0)>corridorW(dzA)+0.35){scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);continue;}
-      if((p.owner.fxT||0)<=0){efkPlay(p.hitEfk||'hit',tp,p.owner.cfg.fxScale||0.4,p.owner.cfg.fxSpeed||1.4);p.owner.fxT=0.7;}
+      if((p.owner.fxT||0)<=0){efkPlay(p.hitEfk||'hit',tp,(p.owner.cfg.fxScale||0.4)*(fxTier()>=2?1.3:1),p.owner.cfg.fxSpeed||1.4);p.owner.fxT=0.7;}
       if(p.efkH){try{p.efkH.stop();}catch(e){}p.efkH=null;}
       damage(p.target,p.dmg);
       scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);
