@@ -419,14 +419,14 @@ function fireSpecial(c,gr,t,from,tp,dmg,n){
   if(k==='boomerang'||k==='lance'){
     const spd=k==='lance'?PSPD*1.7:PSPD*0.8;
     const grp=new THREE.Group();let mesh;
-    if(k==='boomerang'){mesh=new THREE.Mesh(new THREE.TorusGeometry(0.42,0.1,6,14),new THREE.MeshBasicMaterial({color:c.color}));mesh.rotation.x=Math.PI/2;}
+    if(k==='boomerang'){mesh=new THREE.Mesh(new THREE.TorusGeometry(0.6,0.14,6,16),new THREE.MeshBasicMaterial({color:c.color}));mesh.rotation.x=Math.PI/2;}
     else{mesh=new THREE.Mesh(new THREE.ConeGeometry(0.1,1.6,6),new THREE.MeshBasicMaterial({color:c.color}));mesh.rotation.x=-Math.PI/2;grp.add(glowSprite(c.color,0.7));}
     grp.add(mesh);grp.position.copy(from);grp.rotation.y=base;scene.add(grp);
     const vel=new THREE.Vector3(Math.sin(base),0,-Math.cos(base)).multiplyScalar(spd);
     const p={mesh:grp,target:null,owner:{cfg:c,fxT:0},dmg,speed:spd,kind:k,color:c.color,hitEfk:c.hitEfk,fx0:from.x,fz0:from.z,vel,maxDist:k==='boomerang'?c.range:c.range+1,traveled:0,pierce:99,hitSet:new Set(),aoe:0,knock:1,
       waveRad:k==='boomerang'?0.8:0.5,boom:k==='boomerang',slow:k==='lance'?1.6:0};
     if(k==='lance')p.k=0.2;
-    {const trId=k==='lance'?'cold':'suzsword';p.efkH=efkPlay(trId,from,k==='lance'?0.12:0.13,2.0);if(p.efkH&&k==='lance'){try{p.efkH.setRotation(0,Math.atan2(vel.x,vel.z)+Math.PI/2,0);}catch(e){p.efkH=null;}}}
+    {const trId=k==='lance'?'cold':'suzsword';p.efkH=efkPlay(trId,from,k==='lance'?0.16:0.18,2.0);if(p.efkH&&k==='lance'){try{p.efkH.setRotation(0,Math.atan2(vel.x,vel.z)+Math.PI/2,0);}catch(e){p.efkH=null;}}}
     G.projs.push(p);G.statB++;return;}
   if(k==='chain'){
     const pts=[from.clone()];const first=t;const hit=[first];
@@ -448,9 +448,9 @@ function fireSpecial(c,gr,t,from,tp,dmg,n){
   if(k==='lob'){
     const lead=t.kind==='foe'?(t.spd||t.cfg.spd||1)*0.75:0;
     const to=new THREE.Vector3(tp.x,0.1,tp.z+lead);
-    const ball=new THREE.Mesh(new THREE.SphereGeometry(0.22,10,10),new THREE.MeshBasicMaterial({color:c.color}));ball.position.copy(from);scene.add(ball);
+    const ball=new THREE.Mesh(new THREE.SphereGeometry(0.3,10,10),new THREE.MeshBasicMaterial({color:c.color}));ball.position.copy(from);scene.add(ball);
     const mk=ring(0xffd27a,1.0,0.35);mk.position.set(to.x,0.1,to.z);scene.add(mk);
-    const dur=0.75;let el=0;G.q=G.q||[];const th=efkPlay('fireball',from,0.1,1.6);
+    const dur=0.75;let el=0;G.q=G.q||[];const th=efkPlay('fireball',from,0.14,1.6);
     G.q.push({t:dur,step:(dt)=>{el+=dt;const u=Math.min(1,el/dur);ball.position.set(from.x+(to.x-from.x)*u,1.0+(to.y-1.0)*u+3.2*Math.sin(Math.PI*u),from.z+(to.z-from.z)*u);if(th){try{th.setLocation(ball.position.x,ball.position.y,ball.position.z);}catch(e){}}},
       fn:()=>{scene.remove(ball);scene.remove(mk);const rm=ring(0xff9a4a,1.0,0.6);rm.position.set(to.x,0.12,to.z);addFx(rm,0.35);
         if(th){try{th.stop();}catch(e){}}efkPlay('meteo',new THREE.Vector3(to.x,0,to.z),0.3,2.0);
