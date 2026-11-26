@@ -155,7 +155,7 @@ const NODRAW=new URLSearchParams(location.search).has('nodraw'); // 검증 전�
 const FXLIST=new URLSearchParams(location.search).get('fxlist');
 const NUMFX=parseInt(new URLSearchParams(location.search).get('numfx')||'1',10); // 시연: 숫자 차감 강조
 const DART=!!new URLSearchParams(location.search).get('dart'); // 시연: 원작식 빠른 직사 연사감
-const PSPD=DART?58:22; // 효과 청취 전용: id=경로,id=경로
+const PSPD=DART?58:30; // 효과 청취 전용: id=경로,id=경로
 const BOSS={u:'bosses/Mushnub_Evolved.gltf',hp:520,spd:1.9,s:0.95,rr:1.3,gltf:true};
 
 // ---------- state ----------
@@ -303,7 +303,7 @@ function stageLayout(n){
   if(n<5){
     const foeTypes=['Warrior','Minion','Rogue','Mage'];
     [19,25,31,37,43,49,55,61].forEach((dz,w)=>{ // 원작 참고: 파도 수·밀도 상향(더 빨리 더 많이), 첫 파도는 접촉 여유 확보
-      const cnt=2+n;
+      const cnt=3+n;
       const cx=[-1.4,1.6,-0.6,1.2,-1.8,0.9,-1.2,1.7][w%8]; // 원작처럼 파도가 통로 이곳저곳에 뭉쳐 나옴 — 가만히 서 있으면 맞지 않는 파도가 생김
       for(let i=0;i<cnt;i++){
         const t=foeTypes[(w+i+n)%4];
