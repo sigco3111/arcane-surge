@@ -103,7 +103,13 @@ const GROWTH={ // 탄수 초반 가속(사용자 07:44 "5명까지 탄 수"·매
 };
 const REF_S={Knight:[0,1,1,1,2,2,3,3,3,4,4,5,5,5,6,6,7],Rogue:[0,1,1,1,1,1,2,2,2,3,3,3,3,3,4,4,5],Mage:[0,1,1,1,1,1,2,2,2,2,2,3,3,3,4,4,5],Barbarian:[0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],Rogue_Hooded:[0,1,1,1,2,2,2,3,3,3,3,4,4,4,5,5,5]}; // 정규화 기준: 이전 탄수 곡선(총화력 유지용)
 function fxTier(){const p=G.dmgMul*(growth(G.cls,G.allies.length).dmg||1);return p>=3?3:p>=1.6?2:1;} // 성장형 타격FX 단계(가값 임계치 — 단계 비교 검증 후 조정)
-function growth(cls,n){const g={...GROWTH_DEF};for(const [k,v] of (GROWTH[cls]||[]))if(n>=k)Object.assign(g,v);return g;}
+// 병종별 고정 총 타격 폭/사거리(제안서): 폭에는 폭발 반경·파동 폭이 포함, 성장해도 이 상자를 넘지 않음
+const ENV={Knight:{w:1.2,r:14},Rogue:{w:1.8,r:12},Mage:{w:2.6,r:8},Barbarian:{w:3.6,r:5},Rogue_Hooded:{w:2.0,r:11}};
+for(const k in ENV)CLASSES[k].range=ENV[k].r;
+function growth(cls,n){const g={...GROWTH_DEF};for(const [k,v] of (GROWTH[cls]||[]))if(n>=k)Object.assign(g,v);
+  const e=ENV[cls];if(e){g.aoe=Math.min(g.aoe||0,e.w/2-0.4);g.wave=Math.min(g.wave||0,e.r);g.waveW=Math.min(g.waveW,(e.w/2-0.35)/0.55);}
+  return g;}
+function envHalf(cls,gr){const e=ENV[cls];if(!e)return 9;return Math.max(0.35,e.w/2-(gr.aoe||0)-(cls==='Barbarian'?0.55*gr.waveW:0));}
 const CAPTIVE_CYCLE=['Mage','Rogue','Barbarian','Rogue_Hooded','Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism','Artillery']; // 구출 감옥 순환(현재 병종 제외는 스폰 시 결정)
 const EXTRA_CYCLE=['Rogue_Hooded','Mage','Knight','Barbarian','Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism','Artillery'];
 // ---- 7개 신규 병종(제안서 12종 중 신규): 모델은 기존 5종 재사용(무기·색만 다름), 공격 방식은 고유 ----
@@ -226,7 +232,8 @@ async function spawnAlly(clsName,slot){
   layoutSquad();
 }
 function layoutSquad(){ // 뭉친 대형: 황금각 나선 배치, 인원이 늘어도 아래로 길어지지 않음
-  G.allies.forEach((u,i)=>{
+  G.allies.forEach((u,i)=>{u.obj.visible=i<9; // 표시 모델 최대 9 — 병력 수는 숫자(대원 N)로, 화력은 병력 곡선
+
     if(i===0){u.obj.position.set(0,0,-0.35);return;} // 선두
     const r=Math.min(1.5,0.62+0.42*Math.sqrt(i));
     const a=i*2.399;
@@ -324,7 +331,7 @@ function setStage(n){
 
 // ---------- combat ----------
 function corridorK(){const gr=growth(G.cls,G.allies.length);return 0.08+Math.tan((gr.fan||0)*Math.PI/360);} // 사선대 기울기: 기본 0.08 + 성장 부채꼴 반각
-function corridorW(dz){return 0.6+Math.max(0,dz)*corridorK();} // 사선대 반폭 — 조준·발사·충돌·가이드 표시가 같은 기하에서 파생
+function corridorW(dz){return Math.min(0.6+Math.max(0,dz)*corridorK(),envHalf(G.cls,growth(G.cls,G.allies.length)));} // 사선대 반폭 — 조준·발사·충돌·가이드 표시가 같은 기하에서 파생
 function squadTarget(c){ // 부대 중심 기준, 사선대 안 가장 가까운 대상(적·블록·감옥 동일 규칙)
   const sx=G.squad.position.x,sz=G.squad.position.z;
   let best=null,bd=1e9;
@@ -341,6 +348,7 @@ function squadTarget(c){ // 부대 중심 기준, 사선대 안 가장 가까운
   if(bd>c.range)return null;
   return best;
 }
+const FORCE=n=>1.6*(0.7+0.3*Math.min(16,Math.max(1,n))); // 가값: 이중 적용 제거분 보정
 function fireVolley(c,n,gr){ // 일제사격 1회: gr.s갈래 부채꼴, 인원은 발당 피해로 환산
   const t=squadTarget(c);if(!t)return;
   G.statV++;
@@ -349,7 +357,7 @@ function fireVolley(c,n,gr){ // 일제사격 1회: gr.s갈래 부채꼴, 인원�
   const tp=t.obj.position.clone();tp.y=0.8;
   const base=Math.atan2(tp.x-from.x,-(tp.z-from.z)); // 전방 0 기준 좌우 각
   const fan=(gr.fan||0)*Math.PI/180;
-  const perDmg=c.dmg*G.dmgMul*gr.dmg*(0.7+0.3*n)*(c.kind==='wave'?((REF_S[G.cls]||REF_S.Knight)[Math.max(1,Math.min(16,n))]||1):(((REF_S[G.cls]||REF_S.Knight)[Math.max(1,Math.min(16,n))]||1)/gr.s)); // wave는 분할 감쇠 제외: 단일표적 회귀 방지(야만 중반 움푹 수정), 다갈래는 성장 체감으로 // 인원 → 발당 피해 환산, 탄수 증가분은 기존 곡선(REF_S)으로 정규화해 총화력 유지(초안 계수)
+  const perDmg=c.dmg*G.dmgMul*gr.dmg*FORCE(n)/(c.kind==='wave'?1:gr.s); // 총 화력 = 병종 기본 x 병력 곡선 1회 적용(REF_S 이중 적용 제거) — 계수는 가값
   if(SPECIAL_KINDS.has(c.kind)){fireSpecial(c,gr,t,from,tp,perDmg,n);for(const u of G.allies)playOnce(u,c.anim,'Walking_A');return;}
   if(c.kind==='spread'){const half=14*Math.PI/180;G.statV+=0;for(let i=0;i<7;i++){const ang=base+(i/6-0.5)*2*half;spawnVolleyBolt(c,{...gr,s:7},from,ang,perDmg*0.45,n,true);}efkPlay('hit',from,0.15,2.2);for(const u of G.allies)playOnce(u,c.anim,'Walking_A');return;}
   const dzT=Math.max(0.5,from.z-tp.z),angMax=Math.atan2(corridorW(dzT),dzT); // 탄 궤적이 사선대를 벗어나지 않게 발사각 제한
