@@ -37,6 +37,14 @@ function labelSprite(text,color='#ffffff',w=2.2,ttl=1.4){
   const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthWrite:false,depthTest:false}));
   s.scale.set(w,w*0.25,1);return s;}
 
+function comboSprite(txt,color,w){ // 콤보 전용: 큰 볼드 + 색 글로우 + 팝 애니(기하·텍스트만, 자체 이펙트 아님)
+  const c=document.createElement('canvas');c.width=512;c.height=160;const g=c.getContext('2d');
+  g.font='800 92px "Noto Sans KR", sans-serif';g.textAlign='center';g.textBaseline='middle';
+  g.lineWidth=14;g.strokeStyle='rgba(20,10,0,0.85)';g.strokeText(txt,256,80);
+  g.shadowColor=color;g.shadowBlur=22;g.fillStyle=color;g.fillText(txt,256,80);g.fillText(txt,256,80);
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthWrite:false,depthTest:false}));
+  sp.scale.set(w,w*0.3125,1);return sp;}
 function makeNumSprite(n){ // 블록 잔여 수치를 큰 숫자로 표시(원작 스타일)
   const c=document.createElement('canvas');c.width=256;c.height=256;
   const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;
@@ -52,7 +60,7 @@ function drawNum(o,n,col){
 
 // transient effects
 const fx=[];
-function addFx(obj,ttl,fade=true){scene.add(obj);fx.push({obj,t:ttl*FXSLOW,ttl:ttl*FXSLOW,fade});}
+function addFx(obj,ttl,fade=true){scene.add(obj);const e={obj,t:ttl*FXSLOW,ttl:ttl*FXSLOW,fade};fx.push(e);return e;}
 // 자체 제작 전투 이펙트(spark/burst/lightningFx)는 제거 — 전투 효과는 Effekseer 샘플만 사용
 
 // ---------- config (수치 전부 초안) ----------
@@ -416,11 +424,12 @@ function damage(t,d){
 function killUnit(t){
   if(t.kind==='foe'){
     G.kills++;G.combo++;G.comboT=4.0; // 콤보 창(시제품 4.0초, 계측 후 조정)
-    if(G.combo>=2){const tier=G.combo>=25?['#ff5a4a',2.8]:G.combo>=10?['#ff9a3c',2.2]:G.combo>=5?['#ffd966',1.7]:['#ffffff',1.3];
-      const lc=labelSprite('\u00d7'+G.combo,tier[0],tier[1]);lc.position.set(t.obj.position.x,2.0,t.obj.position.z);addFx(lc,0.9);} // 콤보 숫자 팝: 처치 지점 머리 위(가림 방지), 단계별 크기·색
+    if(G.combo>=2){const tier=G.combo>=25?['#ff5a4a',2.6]:G.combo>=10?['#ff9a3c',2.2]:G.combo>=5?['#ffd966',1.8]:['#ffffff',1.4];
+      const lc=comboSprite('\u00d7'+G.combo,tier[0],tier[1]);lc.position.set(t.obj.position.x,2.0,t.obj.position.z);
+      const fe=addFx(lc,0.95);fe.vel=new THREE.Vector3((Math.random()-0.5)*0.5,1.2,0);fe.popW=tier[1];} // 콤보 숫자 팝: 처치 지점 머리 위(가림 방지), 단계별 크기·색·팝
     const TITLES={25:'연전연승',50:'파죽지세',100:'천하무적'};
     if(TITLES[G.combo]){const l=labelSprite(TITLES[G.combo]+' ×'+G.combo,'#ffd966',3.6);l.position.set(G.squad.position.x,3.6,G.squad.position.z-6);addFx(l,1.6);}
-    const dp=t.obj.position.clone();dp.y=0.9;efkPlay(t.isBoss?'featherbomb':'toonhit',dp,t.isBoss?0.40:0.30,1.5);
+    const dp=t.obj.position.clone();dp.y=0.9;efkPlay(t.isBoss?'featherbomb':'toonhit',dp,t.isBoss?0.40:0.26,1.5);
     if(G.kills%CFG.killsPerLevel===0){G.level++;G.dmgMul*=CFG.levelMul;
       {const rp=ring(0xffd966,1.2,0.8);rp.position.set(G.squad.position.x,0.12,G.squad.position.z);addFx(rp,0.6);} // 밝은 중심면 없는 얇은 고리 표시(비교빌드)
       const l=labelSprite('레벨 업!','#ffe27a',2.4);l.position.set(G.squad.position.x,2.6,G.squad.position.z-1);addFx(l,1.6);}
@@ -700,6 +709,7 @@ function update(dt){
   // fx
   for(const f of [...fx]){f.t-=dt;
     if(f.vel){f.vel.y+=(f.grav||0)*dt;f.obj.position.addScaledVector(f.vel,dt);}
+    if(f.popW){const e=Math.min(1,1-f.t/f.ttl);const k=e<0.3?0.5+(e/0.3)*0.6:1.1-0.12*Math.min(1,(e-0.3)/0.7);f.obj.scale.set(f.popW*k,f.popW*0.3125*k,1);}
     if(f.fade&&f.obj.material)f.obj.material.opacity=Math.max(0,f.t/f.ttl);
     if(f.t<=0){scene.remove(f.obj);fx.splice(fx.indexOf(f),1);}}
   // HUD
