@@ -73,10 +73,10 @@ const START_SQUAD=['Knight','Knight','Knight','Knight']; // 통일 부대(사용
 const GROWTH_DEF={s:1,burst:1,fan:0,pierce:3,rate:1,dmg:1,big:0,aoe:0,wave:0,waveW:1,knock:1,aux:0};
 const GROWTH={
  Knight:[[4,{s:2}],[5,{burst:2}],[6,{s:3,fan:6}],[7,{pierce:4}],[8,{fan:9}],[9,{s:4}],[10,{big:1,dmg:1.3}],[11,{s:5}],[12,{pierce:6}],[13,{burst:3}],[14,{s:6}],[15,{pierce:99,dmg:1.6}],[16,{s:7}]],
- Rogue:[[4,{burst:2}],[5,{rate:0.8}],[6,{s:2}],[7,{burst:3}],[8,{rate:0.68}],[9,{s:3,fan:8}],[10,{burst:4,rate:0.62,dmg:1.2}],[12,{pierce:5}],[13,{burst:5}],[14,{s:4,fan:10}],[15,{rate:0.4,dmg:1.3}],[16,{s:5,fan:10}]],
- Mage:[[4,{aoe:0.5}],[5,{aoe:0.7}],[6,{s:2,fan:10}],[7,{aoe:0.9}],[9,{aoe:1.1}],[10,{pierce:2,dmg:1.3}],[11,{s:3,fan:14}],[12,{aoe:1.3}],[14,{s:4,fan:16}],[15,{aoe:1.5,dmg:1.4}],[16,{s:5,fan:18}]],
+ Rogue:[[4,{burst:2}],[5,{rate:0.8}],[6,{s:2}],[7,{burst:3}],[8,{rate:0.68}],[9,{s:3,fan:8}],[10,{burst:4,rate:0.62,dmg:1.2}],[11,{rate:0.56}],[12,{pierce:5}],[13,{burst:5}],[14,{s:4,fan:10}],[15,{rate:0.4,dmg:1.3}],[16,{s:5,fan:10}]], // 11 연사 보완(가값)
+ Mage:[[4,{aoe:0.5}],[5,{aoe:0.7}],[6,{s:2,fan:10}],[7,{aoe:0.9}],[8,{aoe:1.0}],[9,{aoe:1.1}],[10,{pierce:2,dmg:1.3}],[11,{s:3,fan:14}],[12,{aoe:1.3}],[13,{aoe:1.4}],[14,{s:4,fan:16}],[15,{aoe:1.5,dmg:1.4}],[16,{s:5,fan:18}]], // 8·13 폭발 반경 보완(가값)
  Barbarian:[[4,{wave:5}],[5,{waveW:1.3}],[6,{wave:6.5}],[7,{knock:2}],[8,{waveW:1.6}],[9,{wave:8}],[10,{burst:2,dmg:1.3}],[11,{waveW:1.9}],[12,{wave:10}],[13,{knock:3}],[14,{waveW:2.4}],[15,{wave:12,dmg:1.4}],[16,{burst:3}]],
- Rogue_Hooded:[[4,{s:2}],[5,{burst:2}],[7,{s:3,fan:8}],[8,{rate:0.85}],[10,{aux:1}],[11,{s:4,fan:10}],[12,{aux:2}],[13,{rate:0.72}],[14,{s:5,fan:10}],[16,{aux:3}]],
+ Rogue_Hooded:[[4,{s:2}],[5,{burst:2}],[6,{rate:0.92}],[7,{s:3,fan:8}],[8,{rate:0.85}],[9,{dmg:1.15}],[10,{aux:1}],[11,{s:4,fan:10}],[12,{aux:2}],[13,{rate:0.72}],[14,{s:5,fan:10}],[15,{rate:0.62}],[16,{aux:3}]], // 6 연사·9 발당피해·15 연사 보완(가값)
 };
 function growth(cls,n){const g={...GROWTH_DEF};for(const [k,v] of (GROWTH[cls]||[]))if(n>=k)Object.assign(g,v);return g;}
 const CAPTIVE_CYCLE=['Mage','Rogue','Barbarian','Rogue_Hooded']; // 구출 감옥 순환(현재 병종 제외는 스폰 시 결정)
