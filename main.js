@@ -107,17 +107,22 @@ const REF_S={Knight:[0,1,1,1,2,2,3,3,3,4,4,5,5,5,6,6,7],Rogue:[0,1,1,1,1,1,2,2,2
 function fxTier(){const p=G.dmgMul*(growth(G.cls,G.allies.length).dmg||1);return p>=3?3:p>=1.6?2:1;} // 성장형 타격FX 단계(가값 임계치 — 단계 비교 검증 후 조정)
 // 병종별 고정 총 타격 폭/사거리(제안서): 폭에는 폭발 반경·파동 폭이 포함, 성장해도 이 상자를 넘지 않음
 const ENV={Knight:{w:1.2,r:14},Rogue:{w:1.8,r:12},Mage:{w:2.6,r:8},Barbarian:{w:3.6,r:5},Rogue_Hooded:{w:2.0,r:11},
-  Ranger:{w:3.0,r:6},Glaive:{w:1.6,r:10},Sorcerer:{w:3.0,r:12,l:0.7},FrostLancer:{w:1.0,r:15},Pyro:{w:2.4,r:4},Prism:{w:0.8,r:16},Artillery:{w:2.8,r:13,l:0.4}}; // l=조준 레인 반폭 고정(없으면 w/2−폭발/파동). 연쇄·폭발은 이 레인 밖으로 조준선±1.5/반경 1.0까지만
+  Ranger:{w:3.0,r:6,l:0.6},Glaive:{w:1.6,r:10,l:0.3},Sorcerer:{w:3.0,r:12,l:0.7},FrostLancer:{w:1.0,r:15,l:0.1},Pyro:{w:2.4,r:4,l:1.2},Prism:{w:0.8,r:16,l:0.4},Artillery:{w:2.8,r:13,l:0.4}}; // l=조준 레인 반폭 고정(없으면 w/2−폭발/파동). 연쇄·폭발은 이 레인 밖으로 조준선±1.5/반경 1.0까지만
 for(const k in ENV)if(CLASSES[k])CLASSES[k].range=ENV[k].r;
 function growth(cls,n){const g={...GROWTH_DEF};for(const [k,v] of (GROWTH[cls]||[]))if(n>=k)Object.assign(g,v);
-  const e=ENV[cls];if(e){g.aoe=Math.min(g.aoe||0,e.w/2-0.4);g.wave=Math.min(g.wave||0,e.r);g.waveW=Math.min(g.waveW,(e.w/2-0.35)/0.55);}
+  const e=ENV[cls];if(e){g.aoe=Math.min(g.aoe||0,Math.max(0,e.w/2-0.7));g.wave=Math.min(g.wave||0,e.r);g.waveW=Math.min(g.waveW,(e.w/2-0.35)/0.55);}
   return g;}
-function envHalf(cls,gr){const e=ENV[cls];if(!e)return 9;if(e.l)return e.l;return Math.max(0.35,e.w/2-(gr.aoe||0)-(cls==='Barbarian'?0.55*gr.waveW:0));}
+const HITR={Knight:0.35,Rogue:0.35,Mage:0.35,Rogue_Hooded:0.35,Ranger:0.35,Glaive:0.5,FrostLancer:0.4,Barbarian:0}; // 탄 명중 반경(없으면 즉시 판정 0)
+const XTRA={Sorcerer:0.8,Artillery:1.0}; // 연쇄 추가 반경(조준선 0.7→1.5) / 포격 폭발 반경
+function hitR(cls,gr){return cls==='Barbarian'?0.55*(gr.waveW||1):(HITR[cls]||0);}
+function envHalf(cls,gr){const e=ENV[cls];if(!e)return 9;if(e.l)return e.l;return Math.max(0.15,e.w/2-hitR(cls,gr)-(gr.aoe||0));} // 조준 레인 반폭
+function reachHalf(cls,gr,dz){const e=ENV[cls];const lane=Math.min(0.6+Math.max(0,dz)*(0.08+Math.tan((gr.fan||0)*Math.PI/360)),envHalf(cls,gr));let r=lane+hitR(cls,gr)+(gr.aoe||0)+(XTRA[cls]||0);if(cls==='Ranger')r=Math.max(r,Math.tan(10.5*Math.PI/180)*Math.min(Math.max(0,dz),6)+0.35);return r;} // 실제 타격이 닿는 최대 반폭(레인+탄 반경+폭발/연쇄)
+window.__reach=(cls,n,dz)=>{const gr=growth(cls,n);return reachHalf(cls,gr,dz);};
 const CAPTIVE_CYCLE=['Mage','Rogue','Barbarian','Rogue_Hooded','Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism','Artillery']; // 구출 감옥 순환(현재 병종 제외는 스폰 시 결정)
 const EXTRA_CYCLE=['Rogue_Hooded','Mage','Knight','Barbarian','Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism','Artillery'];
 // ---- 7개 신규 병종(제안서 12종 중 신규): 모델은 기존 5종 재사용(무기·색만 다름), 공격 방식은 고유 ----
 const _B=(b,o)=>({...CLASSES[b],...o});
-CLASSES.Ranger=_B('Rogue',{kind:'spread',dmg:7,cd:1.0,range:6.5,color:0x8fe08a,hitEfk:'hit',fxScale:0.11,fxSpeed:2.6,maxD:6.5});
+CLASSES.Ranger=_B('Rogue',{kind:'spread',dmg:7,cd:1.0,range:6.5,color:0x8fe08a,hitEfk:'hit',fxScale:0.11,fxSpeed:2.6,maxD:6});
 CLASSES.Glaive=_B('Barbarian',{kind:'boomerang',dmg:8,cd:1.4,range:10,color:0xffc84a,hitEfk:'hit',fxScale:0.12,fxSpeed:2.4,anim:'2H_Melee_Attack_Slice'});
 CLASSES.Sorcerer=_B('Mage',{kind:'chain',dmg:6,cd:1.1,range:10,color:0xbfe6ff,hitEfk:'hit',fxScale:0.14,fxSpeed:2.6});
 CLASSES.FrostLancer=_B('Knight',{kind:'lance',dmg:5,cd:0.8,range:15,color:0x7fd8ff,hitEfk:'cold',fxScale:0.11,fxSpeed:2.6});
@@ -364,7 +369,7 @@ function fireVolley(c,n,gr){ // 일제사격 1회: gr.s갈래 부채꼴, 인원�
   const fan=(gr.fan||0)*Math.PI/180;
   const perDmg=c.dmg*G.dmgMul*gr.dmg*FORCE(n)/(c.kind==='wave'?1:gr.s); // 총 화력 = 병종 기본 x 병력 곡선 1회 적용(REF_S 이중 적용 제거) — 계수는 가값
   if(SPECIAL_KINDS.has(c.kind)){fireSpecial(c,gr,t,from,tp,perDmg,n);for(const u of G.allies)playOnce(u,c.anim,'Walking_A');return;}
-  if(c.kind==='spread'){const half=14*Math.PI/180;G.statV+=0;for(let i=0;i<7;i++){const ang=base+(i/6-0.5)*2*half;spawnVolleyBolt(c,{...gr,s:7},from,ang,perDmg*0.45,n,true);}efkPlay('hit',from,0.15,2.2);for(const u of G.allies)playOnce(u,c.anim,'Walking_A');return;}
+  if(c.kind==='spread'){const half=10.5*Math.PI/180;G.statV+=0;for(let i=0;i<7;i++){const ang=0+(i/6-0.5)*2*half;spawnVolleyBolt(c,{...gr,s:7},from,ang,perDmg*0.45,n,true);}efkPlay('hit',from,0.15,2.2);for(const u of G.allies)playOnce(u,c.anim,'Walking_A');return;}
   const dzT=Math.max(0.5,from.z-tp.z),angMax=Math.atan2(corridorW(dzT),dzT); // 탄 궤적이 사선대를 벗어나지 않게 발사각 제한
   for(let i=0;i<gr.s;i++){
     let off=gr.s>1?(i/(gr.s-1)-0.5)*fan:0;
@@ -392,7 +397,7 @@ function spawnVolleyBolt(c,gr,from,ang,dmg,n,wide){
   const TRAIL={bolt:'suzsword',shard:'cold',fire:'fireball'}; // 병종별 궤적(기존 effekseer 에셋). wave는 파동 메시가 곧 형태 — ember 잔여 화염으로 제외
   const TSC={bolt:0.11,wave:0.07,shard:0.09,fire:0.18}; // 궤적은 작게·빠르게 — 입자 덩어리가 공격 형태를 가리지 않도록
   const tId=TRAIL[c.kind];if(tId){p.efkH=efkPlay(tId,from,TSC[c.kind]*[1,1.25,1.4][fxTier()-1],2.0); /* 티어별 궤적 밀도(가값) */ if(p.efkH){try{p.efkH.setRotation(0,Math.atan2(vel.x,vel.z)+Math.PI/2,0);}catch(e){p.efkH=null;}}} // 궤적을 진행 방향으로 정렬(검 날 열이 진행축에 놓이도록 +90°)
-  if(wide)p.k=Math.tan(14*Math.PI/180)+0.08;
+  if(wide)p.k=Math.tan(10.5*Math.PI/180)+0.08;
   G.projs.push(p);G.statB++;
 }
 function spawnAuxBolt(c,from,dmg){ // 후드 특성: 유도 보조탄 — 적만 추적(블록·감옥 무시)
@@ -415,7 +420,7 @@ function slabFx(from,ang,len,wid,color,ttl,op=0.4){const m=new THREE.Mesh(new TH
 function fireSpecial(c,gr,t,from,tp,dmg,n){
   const k=c.kind;G.statV++;
   const base=Math.atan2(tp.x-from.x,-(tp.z-from.z));
-  const aimX=z=>from.x+Math.tan(base)*(from.z-z);
+  const aimX=z=>(k==='chain'||k==='flame'||k==='beam')?from.x:from.x+Math.tan(base)*(from.z-z); // 연쇄·화염·광선은 부대 정면 직선 — 조준 레인 + 자체 폭이 총 폭 상자 안에 들도록
   if(k==='boomerang'||k==='lance'){
     const spd=k==='lance'?PSPD*1.7:PSPD*0.8;
     const grp=new THREE.Group();let mesh;
@@ -424,7 +429,7 @@ function fireSpecial(c,gr,t,from,tp,dmg,n){
     grp.add(mesh);grp.position.copy(from);grp.rotation.y=base;scene.add(grp);
     const vel=new THREE.Vector3(Math.sin(base),0,-Math.cos(base)).multiplyScalar(spd);
     const p={mesh:grp,target:null,owner:{cfg:c,fxT:0},dmg,speed:spd,kind:k,color:c.color,hitEfk:c.hitEfk,fx0:from.x,fz0:from.z,vel,maxDist:k==='boomerang'?c.range:c.range+1,traveled:0,pierce:99,hitSet:new Set(),aoe:0,knock:1,
-      waveRad:k==='boomerang'?0.8:0.5,boom:k==='boomerang',slow:k==='lance'?1.6:0};
+      waveRad:k==='boomerang'?0.5:0.4,boom:k==='boomerang',slow:k==='lance'?1.6:0};
     if(k==='lance')p.k=0.2;
     {const trId=k==='lance'?'cold':'suzsword';p.efkH=efkPlay(trId,from,k==='lance'?0.16:0.18,2.0);if(p.efkH&&k==='lance'){try{p.efkH.setRotation(0,Math.atan2(vel.x,vel.z)+Math.PI/2,0);}catch(e){p.efkH=null;}}}
     G.projs.push(p);G.statB++;return;}
@@ -733,12 +738,15 @@ function update(dt){
       const mk=()=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array((N+1)*2*3),3));
         const idx=[];for(let i=0;i<N;i++){const a0=i*2;idx.push(a0,a0+1,a0+2,a0+1,a0+3,a0+2);}g.setIndex(idx);
         const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.12,depthWrite:false,side:THREE.DoubleSide}));m.frustumCulled=false;scene.add(m);return m;};
-      G.guideStrips=[mk(),mk()];}
+      G.guideStrips=[mk(),mk()];G.reachStrips=[mk(),mk()];for(const m of G.reachStrips)m.material.color.set(0xffb060);}
     const len=CLASSES[G.cls].range;
     [-1,1].forEach((sgn,si)=>{const pos=G.guideStrips[si].geometry.attributes.position;
       for(let i=0;i<=N;i++){const dz=len*i/N;const hw=corridorW(dz);const z=sq.z-0.6-dz;
         pos.setXYZ(i*2,sq.x+sgn*hw,0.06,z);pos.setXYZ(i*2+1,sq.x+sgn*(hw+0.07),0.06,z);}
-      pos.needsUpdate=true;});
+      pos.needsUpdate=true;
+      const rp=G.reachStrips[si].geometry.attributes.position,grr=growth(G.cls,G.allies.length);
+      for(let i=0;i<=N;i++){const dz=len*i/N;const hw=reachHalf(G.cls,grr,dz);const z=sq.z-0.6-dz;rp.setXYZ(i*2,sq.x+sgn*hw,0.05,z);rp.setXYZ(i*2+1,sq.x+sgn*(hw+0.07),0.05,z);}
+      rp.needsUpdate=true;});
   }
   // stage spawning
   G.layout.forEach((e,i)=>{
@@ -814,8 +822,8 @@ function update(dt){
       const seg=(o,rad)=>{const ox=o.obj.position.x-px0,oz=o.obj.position.z-pz0;
         const t=Math.max(0,Math.min(step,ox*ux+oz*uz));const dd=Math.hypot(ox-ux*t,oz-uz*t);
         if(dd<rad&&dd<bhd){bhd=dd;hit=o;}};
-      for(const e of G.enemies)if(e.hp>0&&e.deadT==null&&!p.hitSet.has(e))seg(e,p.waveRad||0.6);
-      if(!hit)for(const b of G.blocks)if(b.hp>0)seg(b,p.waveRad?p.waveRad+0.1:0.7);
+      for(const e of G.enemies)if(e.hp>0&&e.deadT==null&&!p.hitSet.has(e))seg(e,p.waveRad||0.35);
+      if(!hit)for(const b of G.blocks)if(b.hp>0)seg(b,(p.waveRad||0.35)+0.1);
       if(hit){G.statH++;const hp2=hit.obj.position.clone();hp2.y=0.8;
         if(G.fxT<=0){efkPlay(p.hitEfk||'hit',hp2,(p.owner.cfg.fxScale||0.4)*(fxTier()>=2?1.3:1),p.owner.cfg.fxSpeed||1.4);G.fxT=0.25;} // 2단계~ 명중 섬광 확대(가값)
         if(p.slow&&hit.kind==='foe'){hit.slowT=p.slow;efkPlay('toonwater',hp2,0.12,1.8);}
@@ -868,3 +876,4 @@ function update(dt){
 init().catch(e=>{console.error(e);window.__err=String(e.stack||e);});
 window.__spawn=async(type,x,dz)=>{await spawnFoe(type,x,G.squad.position.z-dz,false,null);return 1;}; // 테스트 훅
 window.__step=(n,dt)=>{window.__fn=(window.__fn||performance.now());for(let i=0;i<n;i++){window.__skipDraw=i<n-1;window.__fn+=dt*1000;tick(window.__fn);}return 1;}; // 검증 훅: 수동 프레임 진행(실제 렌더는 마지막 프레임만)
+window.__fwd=v=>{CFG.fwdSpeed=v;return 1;}; // 검증 훅
