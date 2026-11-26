@@ -365,7 +365,8 @@ function squadTarget(c){ // 부대 중심 기준, 사선대 안 가장 가까운
   return best;
 }
 const REC_DPS=5; // 구간1 권장 초당 화력(가값): 30 = 5 x 6초
-const FORCE=n=>2.6*(0.7+0.3*Math.min(16,Math.max(1,n))); // 가값: 이중 적용 제거분 보정
+const EARLY_BONUS=3.9; // 사용자 11-26 22:06 "투사체 공격력이 더 높아야": 초반 보정을 더하는 방식(1명 +3.9, 보이는 대원 9명 상한까지 선형으로 0). 더하기라 대원이 늘 때 총 화력은 줄지 않음(연사/줄 수/피해 분배 구조 불변)
+const FORCE=n=>2.6*(0.7+0.3*Math.min(16,Math.max(1,n)))+EARLY_BONUS*Math.min(1,Math.max(0,(9-n)/8)); // 가값
 function fireVolley(c,n,gr){ // 일제사격 1회: gr.s갈래 부채꼴, 인원은 발당 피해로 환산
   const t=squadTarget(c);if(!t)return;
   G.statV++;
