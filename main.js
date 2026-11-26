@@ -53,10 +53,12 @@ function makeNumSprite(n){ // 블록 잔여 수치를 큰 숫자로 표시(원�
   s.scale.set(1.5,1.5,1);
   const o={sprite:s,c,tex:t};
   drawNum(o,n);return o;}
+function fmtNum(n){n=Math.max(0,Math.ceil(+n||0));if(n<10000)return String(n);if(n<1e6)return (n/1000>=100?Math.round(n/1000):(Math.round(n/100)/10))+'k';return (Math.round(n/1e5)/10)+'M';} // 9,999 넘으면 k
 function drawNum(o,n,col){
-  const g=o.c.getContext('2d');g.clearRect(0,0,256,256);
-  g.font='800 130px Orbitron,Pretendard,"Noto Sans KR",sans-serif';g.textAlign='center';g.textBaseline='middle';
-  g.lineWidth=16;g.strokeStyle='rgba(0,0,0,0.85)';g.strokeText(String(n),128,134);g.fillStyle=col||'#ffffff';g.fillText(String(n),128,134);
+  const g=o.c.getContext('2d');g.clearRect(0,0,256,256);const txt=fmtNum(n);
+  const px=txt.length<=3?130:txt.length===4?108:txt.length===5?88:74; // 자릿수에 맞춰 글자 크기 축소 — 잘림 방지
+  g.font='800 '+px+'px Orbitron,Pretendard,"Noto Sans KR",sans-serif';g.textAlign='center';g.textBaseline='middle';
+  g.lineWidth=Math.round(px/8);g.strokeStyle='rgba(0,0,0,0.85)';g.strokeText(txt,128,134);g.fillStyle=col||'#ffffff';g.fillText(txt,128,134);
   o.tex.needsUpdate=true;}
 
 // transient effects
