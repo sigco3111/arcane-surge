@@ -329,7 +329,7 @@ function spawnVolleyBolt(c,gr,from,ang,dmg,n){
   const vel=new THREE.Vector3(Math.sin(ang),0,-Math.cos(ang)).multiplyScalar(spd);
   const maxDist=c.kind==='wave'?(gr.wave||4):c.range+3.5;
   const p={mesh:grp,target:null,owner:{cfg:c,fxT:0},dmg,speed:spd,kind:c.kind,color:c.color,hitEfk:c.hitEfk||'hit',
-    vel,maxDist,traveled:0,pierce:c.kind==='wave'?99:gr.pierce,hitSet:new Set(),aoe:gr.aoe||0,knock:c.kind==='wave'?gr.knock:1,waveRad:c.kind==='wave'?0.55*gr.waveW:0};
+    fx0:from.x,fz0:from.z,vel,maxDist,traveled:0,pierce:c.kind==='wave'?99:gr.pierce,hitSet:new Set(),aoe:gr.aoe||0,knock:c.kind==='wave'?gr.knock:1,waveRad:c.kind==='wave'?0.55*gr.waveW:0};
   if(c.kind==='fire')p.efkH=efkPlay('fireball',from,0.30,1.0);
   G.projs.push(p);G.statB++;
 }
@@ -341,7 +341,7 @@ function spawnAuxBolt(c,from,dmg){ // 후드 특성: 유도 보조탄 — 적만
   if(!best)return;
   const mesh=new THREE.Mesh(new THREE.ConeGeometry(0.06,0.5,5),new THREE.MeshBasicMaterial({color:0xc79fff})); // 가는 보라탄
   mesh.rotation.x=-Math.PI/2;const grp=new THREE.Group();grp.add(mesh);grp.position.copy(from);scene.add(grp);
-  G.projs.push({mesh:grp,target:best,owner:{cfg:c,fxT:0},dmg,speed:PSPD*0.8,kind:'aux',color:0xc79fff,hitEfk:'aura'});
+  G.projs.push({mesh:grp,target:best,owner:{cfg:c,fxT:0},dmg,speed:PSPD*0.8,kind:'aux',color:0xc79fff,hitEfk:'aura',fx0:from.x,fz0:from.z});
 }
 function nearestTarget(unit){
   const wp=unit.obj.getWorldPosition(new THREE.Vector3());
@@ -650,8 +650,8 @@ function update(dt){
       const step=p.speed*dt;const px0=p.mesh.position.x,pz0=p.mesh.position.z;
       p.mesh.position.addScaledVector(p.vel,dt);p.traveled+=step;
       if(p.efkH){try{p.efkH.setLocation(p.mesh.position.x,p.mesh.position.y,p.mesh.position.z);}catch(e){p.efkH=null;}}
-      const dzB=(sq.z-0.6)-p.mesh.position.z; // 사선대 이탈 탄은 경계에서 소멸(표시 밖 판정 없음)
-      if(dzB>0&&Math.abs(p.mesh.position.x-sq.x)>corridorW(dzB)+0.05){G.statX++;if(p.efkH){try{p.efkH.stop();}catch(e){}p.efkH=null;}
+      const dzB=p.fz0-p.mesh.position.z; // 사선대 이탈 탄은 경계에서 소멸 — 발사 시점 원점 기준(부대 이동 중 돌발 소멸 방지)
+      if(dzB>0&&Math.abs(p.mesh.position.x-p.fx0)>corridorW(dzB)+0.05){G.statX++;if(p.efkH){try{p.efkH.stop();}catch(e){}p.efkH=null;}
         scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);continue;}
       const ux=p.vel.x/p.speed,uz=p.vel.z/p.speed; // 이동 선분 기준 최근접 판정(고속 관통 방지)
       let hit=null,bhd=1e9;
@@ -680,8 +680,9 @@ function update(dt){
     const d=tp.clone().sub(p.mesh.position);const dist=d.length();
     const step=p.speed*dt;
     if(dist<=step+0.15){
-      const dzA=(sq.z-0.6)-p.mesh.position.z; // 유도탄도 같은 사선대 판정
-      if(dzA>0&&Math.abs(p.mesh.position.x-sq.x)>corridorW(dzA)+0.35){scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);continue;}
+      const dzA=p.fz0!=null?(p.fz0-p.mesh.position.z):(sq.z-0.6)-p.mesh.position.z; // 유도탄도 같은 사선대 판정(발사 원점 기준)
+      const ax0=p.fx0!=null?p.fx0:sq.x;
+      if(dzA>0&&Math.abs(p.mesh.position.x-ax0)>corridorW(dzA)+0.35){scene.remove(p.mesh);G.projs.splice(G.projs.indexOf(p),1);continue;}
       if((p.owner.fxT||0)<=0){efkPlay(p.hitEfk||'hit',tp,p.owner.cfg.fxScale||0.4,p.owner.cfg.fxSpeed||1.4);p.owner.fxT=0.7;}
       if(p.efkH){try{p.efkH.stop();}catch(e){}p.efkH=null;}
       damage(p.target,p.dmg);
