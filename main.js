@@ -114,6 +114,7 @@ const WEAK=new URLSearchParams(location.search).has('weak'); // 패배 경로 �
 const BOSSONLY=new URLSearchParams(location.search).has('bossonly'); // 보스 돌파 경로 단독 검증용
 const FXSLOW=parseFloat(new URLSearchParams(location.search).get('fxslow'))||1; // 이펙트 수명 배율(캡처 전용, 외형 불변)
 const NOFX=new URLSearchParams(location.search).has('nofx'); // 로직 회귀 전용: 효과 재생/그리기 생략
+const NODRAW=new URLSearchParams(location.search).has('nodraw'); // 검증 전용: WebGL 그리기 생략(로직·DOM HUD는 실시간 동작) — 헤드리스 CSS 애니메이션 계측용
 const FXLIST=new URLSearchParams(location.search).get('fxlist');
 const NUMFX=parseInt(new URLSearchParams(location.search).get('numfx')||'1',10); // 시연: 숫자 차감 강조
 const DART=!!new URLSearchParams(location.search).get('dart'); // 시연: 원작식 빠른 직사 연사감
@@ -582,7 +583,7 @@ function tick(now){
   cam.position.set(G.squad?G.squad.position.x*0.4:0,17,(G.squad?G.squad.position.z:0)+13.5);
   cam.lookAt(G.squad?G.squad.position.x*0.3:0,0,(G.squad?G.squad.position.z:0)-6);
   if(G.defLineMesh)G.defLineMesh.position.set(0,0.035,(G.squad?G.squad.position.z:0)+CFG.defLine);
-  renderer.render(scene,cam);
+  if(!NODRAW){renderer.render(scene,cam);
   if(efk&&!NOFX){ // Effekseer 효과를 three 위에 같은 카메라로 그림
     efk.ctx.update(dt*60);
     const gl=renderer.getContext();
@@ -591,7 +592,7 @@ function tick(now){
     gl.useProgram(null);
     efk.ctx.draw();
     renderer.resetState();
-  }
+  }}
 }
 function update(dt){
   dt*=TS;
