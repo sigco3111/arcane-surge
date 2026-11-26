@@ -443,7 +443,7 @@ function fireSpecial(c,gr,t,from,tp,dmg,n){
     for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)]){const p=o.obj.position;const dz=from.z-p.z;if(dz<=0||dz>len)continue;if(Math.abs(p.x-aimX(p.z))>1.2)continue;damage(o,dmg);}
     for(let i=1;i<=3;i++){const q=new THREE.Vector3(aimX(from.z-i*1.2),0.6,from.z-i*1.2);efkPlay('fireball',q,0.12+0.03*i,2.2);}efkPlay('flame',new THREE.Vector3(aimX(from.z-2.4),0.4,from.z-2.4),0.12,2.0);return;}
   if(k==='beam'){
-    const len=c.range;for(let i=0;i<5;i++){const zz=from.z-1.5-i*3.2;efkPlay('aura',new THREE.Vector3(aimX(zz),0.9,zz),0.12,2.4);}
+    const len=c.range;for(let i=0;i<5;i++){const zz=from.z-1.5-i*3.2;efkPlay('aura',new THREE.Vector3(aimX(zz),0.9,zz),0.16,2.4);}
     for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)]){const p=o.obj.position;const dz=from.z-p.z;if(dz<=0||dz>len)continue;if(Math.abs(p.x-aimX(p.z))>0.4)continue;damage(o,dmg);if(o.kind==='foe'&&!(G.sparkT>0)){efkPlay('thunder',new THREE.Vector3(p.x,0,p.z),0.1,2.2);G.sparkT=0.12;}}return;}
   if(k==='lob'){
     const lead=t.kind==='foe'?(t.spd||t.cfg.spd||1)*0.75:0;
@@ -464,12 +464,12 @@ function castBig(which){
   const l=labelSprite('대형 마법: '+KO[kind],'#ffe9a8',3.0);l.position.set(sq.x,3.2,sq.z-2);addFx(l,1.4);
   const alive=foesAlive().filter(e=>e.obj.position.z<sq.z-0.5&&e.obj.position.z>sq.z-16).sort((a,b)=>b.obj.position.z-a.obj.position.z);
   if(kind==='tornado'){
-    const pos={x:sq.x,z:sq.z-3};const h=efkPlay('tornade',new THREE.Vector3(pos.x,0,pos.z),0.3,1.2);let tk=0;
+    const pos={x:sq.x,z:sq.z-3};const h=efkPlay('tornade',new THREE.Vector3(pos.x,0,pos.z),0.5,1.2);let tk=0;
     G.q.push({t:3.0,step:(dt)=>{pos.z-=3.0*dt;tk+=dt;if(h){try{h.setLocation(pos.x,0,pos.z);}catch(e){}}
       if(tk>=0.25){tk=0;for(const o of [...foesAlive()])if(Math.hypot(o.obj.position.x-pos.x,o.obj.position.z-pos.z)<=1.3)damage(o,5*dm);}},fn:()=>{if(h){try{h.stop();}catch(e){}}}});
   }else if(kind==='meteo'){
     const tg=alive.slice(0,3);if(!tg.length)tg.push({obj:{position:new THREE.Vector3(sq.x,0,sq.z-6)}});
-    tg.forEach((e,i)=>G.q.push({t:0.25+i*0.4,fn:()=>{const p=e.obj.position;const q=new THREE.Vector3(p.x,0,p.z);efkPlay('meteo',q,0.35,1.3);
+    tg.forEach((e,i)=>G.q.push({t:0.25+i*0.4,fn:()=>{const p=e.obj.position;const q=new THREE.Vector3(p.x,0,p.z);efkPlay('meteo',q,0.5,1.3);
       G.q.push({t:0.5,fn:()=>{const rm=ring(0xff7a2a,1.4,0.6);rm.position.set(q.x,0.12,q.z);addFx(rm,0.4);for(const o of foesAlive())if(Math.hypot(o.obj.position.x-q.x,o.obj.position.z-q.z)<=1.4)damage(o,14*dm);}});}}));
   }else{
     const tg=alive.slice(0,5);
