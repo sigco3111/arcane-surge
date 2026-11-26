@@ -106,12 +106,13 @@ const GROWTH={ // 탄수 초반 가속(사용자 07:44 "5명까지 탄 수"·매
 const REF_S={Knight:[0,1,1,1,2,2,3,3,3,4,4,5,5,5,6,6,7],Rogue:[0,1,1,1,1,1,2,2,2,3,3,3,3,3,4,4,5],Mage:[0,1,1,1,1,1,2,2,2,2,2,3,3,3,4,4,5],Barbarian:[0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],Rogue_Hooded:[0,1,1,1,2,2,2,3,3,3,3,4,4,4,5,5,5]}; // 정규화 기준: 이전 탄수 곡선(총화력 유지용)
 function fxTier(){const p=G.dmgMul*(growth(G.cls,G.allies.length).dmg||1);return p>=3?3:p>=1.6?2:1;} // 성장형 타격FX 단계(가값 임계치 — 단계 비교 검증 후 조정)
 // 병종별 고정 총 타격 폭/사거리(제안서): 폭에는 폭발 반경·파동 폭이 포함, 성장해도 이 상자를 넘지 않음
-const ENV={Knight:{w:1.2,r:14},Rogue:{w:1.8,r:12},Mage:{w:2.6,r:8},Barbarian:{w:3.6,r:5},Rogue_Hooded:{w:2.0,r:11}};
+const ENV={Knight:{w:1.2,r:14},Rogue:{w:1.8,r:12},Mage:{w:2.6,r:8},Barbarian:{w:3.6,r:5},Rogue_Hooded:{w:2.0,r:11},
+  Ranger:{w:3.0,r:6},Glaive:{w:1.6,r:10},Sorcerer:{w:3.0,r:12,l:0.7},FrostLancer:{w:1.0,r:15},Pyro:{w:2.4,r:4},Prism:{w:0.8,r:16},Artillery:{w:2.8,r:13,l:0.4}}; // l=조준 레인 반폭 고정(없으면 w/2−폭발/파동). 연쇄·폭발은 이 레인 밖으로 조준선±1.5/반경 1.0까지만
 for(const k in ENV)CLASSES[k].range=ENV[k].r;
 function growth(cls,n){const g={...GROWTH_DEF};for(const [k,v] of (GROWTH[cls]||[]))if(n>=k)Object.assign(g,v);
   const e=ENV[cls];if(e){g.aoe=Math.min(g.aoe||0,e.w/2-0.4);g.wave=Math.min(g.wave||0,e.r);g.waveW=Math.min(g.waveW,(e.w/2-0.35)/0.55);}
   return g;}
-function envHalf(cls,gr){const e=ENV[cls];if(!e)return 9;return Math.max(0.35,e.w/2-(gr.aoe||0)-(cls==='Barbarian'?0.55*gr.waveW:0));}
+function envHalf(cls,gr){const e=ENV[cls];if(!e)return 9;if(e.l)return e.l;return Math.max(0.35,e.w/2-(gr.aoe||0)-(cls==='Barbarian'?0.55*gr.waveW:0));}
 const CAPTIVE_CYCLE=['Mage','Rogue','Barbarian','Rogue_Hooded','Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism','Artillery']; // 구출 감옥 순환(현재 병종 제외는 스폰 시 결정)
 const EXTRA_CYCLE=['Rogue_Hooded','Mage','Knight','Barbarian','Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism','Artillery'];
 // ---- 7개 신규 병종(제안서 12종 중 신규): 모델은 기존 5종 재사용(무기·색만 다름), 공격 방식은 고유 ----
@@ -291,7 +292,7 @@ async function spawnBlock(kind,x,z){
     grp.userData.tag=tag;
   }
   grp.add(discShadow(0.5));
-  const bhp=Math.round(30*(1.3**(G.stage-1))*Math.max(1,G.dmgMul*0.8)); // 원작 참고: 진행할수록 상자 수치 증가
+  const bhp=Math.round(REC_DPS*(1.3**(G.stage-1))*6); // 구간 권장 화력 x 약 6초, 스폰 시점 고정(현재 공격 배율과 무관 — 제안서) // 원작 참고: 진행할수록 상자 수치 증가
   const unit={kind:'block',btype:kind,hp:bhp,maxHp:bhp,obj:grp,hitT:0};
   const num=makeNumSprite(bhp);num.sprite.position.y=1.55;grp.add(num.sprite);unit.hpNum=num;
   scene.add(grp);G.blocks.push(unit);
@@ -350,6 +351,7 @@ function squadTarget(c){ // 부대 중심 기준, 사선대 안 가장 가까운
   if(bd>c.range)return null;
   return best;
 }
+const REC_DPS=5; // 구간1 권장 초당 화력(가값): 30 = 5 x 6초
 const FORCE=n=>1.6*(0.7+0.3*Math.min(16,Math.max(1,n))); // 가값: 이중 적용 제거분 보정
 function fireVolley(c,n,gr){ // 일제사격 1회: gr.s갈래 부채꼴, 인원은 발당 피해로 환산
   const t=squadTarget(c);if(!t)return;
@@ -423,34 +425,35 @@ function fireSpecial(c,gr,t,from,tp,dmg,n){
     const p={mesh:grp,target:null,owner:{cfg:c,fxT:0},dmg,speed:spd,kind:k,color:c.color,hitEfk:c.hitEfk,fx0:from.x,fz0:from.z,vel,maxDist:k==='boomerang'?c.range:c.range+1,traveled:0,pierce:99,hitSet:new Set(),aoe:0,knock:1,
       waveRad:k==='boomerang'?0.8:0.5,boom:k==='boomerang',slow:k==='lance'?1.6:0};
     if(k==='lance')p.k=0.2;
+    {const trId=k==='lance'?'cold':'suzsword';p.efkH=efkPlay(trId,from,k==='lance'?0.13:0.16,2.0);if(p.efkH&&k==='lance'){try{p.efkH.setRotation(0,Math.atan2(vel.x,vel.z)+Math.PI/2,0);}catch(e){p.efkH=null;}}}
     G.projs.push(p);G.statB++;return;}
   if(k==='chain'){
     const pts=[from.clone()];const first=t;const hit=[first];
-    const hp=first.obj.position.clone();hp.y=0.9;pts.push(hp);damage(first,dmg);efkPlay('hit',hp,0.18,2.2);
+    const hp=first.obj.position.clone();hp.y=0.9;pts.push(hp);damage(first,dmg);efkPlay('thunder',new THREE.Vector3(hp.x,0,hp.z),0.12,2.2);
     let last=first;
     for(let h=0;h<3;h++){let best=null,bd=1e9;
       for(const e of foesAlive()){if(hit.includes(e))continue;const p=e.obj.position;if(p.z>from.z-0.3)continue;
         if(Math.abs(p.x-aimX(p.z))>1.5)continue; // 연쇄는 조준선 ±1.5 안에서만 — 총 폭 3.0
         const d=Math.hypot(p.x-last.obj.position.x,p.z-last.obj.position.z);if(d<=1.5&&d<bd){bd=d;best=e;}}
-      if(!best)break;hit.push(best);const q=best.obj.position.clone();q.y=0.9;pts.push(q);damage(best,dmg*0.6);efkPlay('hit',q,0.14,2.2);last=best;}
+      if(!best)break;hit.push(best);const q=best.obj.position.clone();q.y=0.9;pts.push(q);damage(best,dmg*0.6);efkPlay('thunder',new THREE.Vector3(q.x,0,q.z),0.1,2.2);last=best;}
     lineFx(pts,0xbfe6ff,0.22);return;}
   if(k==='flame'){
-    const len=c.range;slabFx(from,base,len,2.4,0xff7a2a,0.28,0.35);
+    const len=c.range;
     for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)]){const p=o.obj.position;const dz=from.z-p.z;if(dz<=0||dz>len)continue;if(Math.abs(p.x-aimX(p.z))>1.2)continue;damage(o,dmg);}
-    for(let i=1;i<=2;i++){const q=new THREE.Vector3(aimX(from.z-i*1.6),0.5,from.z-i*1.6);efkPlay('flame',q,0.1,2.0);}return;}
+    for(let i=1;i<=3;i++){const q=new THREE.Vector3(aimX(from.z-i*1.2),0.6,from.z-i*1.2);efkPlay('fireball',q,0.12+0.03*i,2.2);}efkPlay('flame',new THREE.Vector3(aimX(from.z-2.4),0.4,from.z-2.4),0.12,2.0);return;}
   if(k==='beam'){
-    const len=c.range;const e=slabFx(from,base,len,0.3,0xe6c8ff,0.14,0.85);
-    for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)]){const p=o.obj.position;const dz=from.z-p.z;if(dz<=0||dz>len)continue;if(Math.abs(p.x-aimX(p.z))>0.4)continue;damage(o,dmg);}return;}
+    const len=c.range;for(let i=0;i<5;i++){const zz=from.z-1.5-i*3.2;efkPlay('aura',new THREE.Vector3(aimX(zz),0.9,zz),0.08,2.4);}efkPlay('bene',new THREE.Vector3(from.x,1.0,from.z-0.8),0.07,2.6);
+    for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)]){const p=o.obj.position;const dz=from.z-p.z;if(dz<=0||dz>len)continue;if(Math.abs(p.x-aimX(p.z))>0.4)continue;damage(o,dmg);if(o.kind==='foe'&&!(G.sparkT>0)){efkPlay('thunder',new THREE.Vector3(p.x,0,p.z),0.1,2.2);G.sparkT=0.12;}}return;}
   if(k==='lob'){
     const lead=t.kind==='foe'?(t.spd||t.cfg.spd||1)*0.75:0;
     const to=new THREE.Vector3(tp.x,0.1,tp.z+lead);
     const ball=new THREE.Mesh(new THREE.SphereGeometry(0.22,10,10),new THREE.MeshBasicMaterial({color:c.color}));ball.position.copy(from);scene.add(ball);
-    const mk=ring(0xffd27a,1.4,0.35);mk.position.set(to.x,0.1,to.z);scene.add(mk);
-    const dur=0.75;let el=0;G.q=G.q||[];
-    G.q.push({t:dur,step:(dt)=>{el+=dt;const u=Math.min(1,el/dur);ball.position.set(from.x+(to.x-from.x)*u,1.0+(to.y-1.0)*u+3.2*Math.sin(Math.PI*u),from.z+(to.z-from.z)*u);},
-      fn:()=>{scene.remove(ball);scene.remove(mk);const rm=ring(0xff9a4a,1.4,0.6);rm.position.set(to.x,0.12,to.z);addFx(rm,0.35);
-        efkPlay('hit',new THREE.Vector3(to.x,0.6,to.z),0.28,2.0);
-        for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)])if(Math.hypot(o.obj.position.x-to.x,o.obj.position.z-to.z)<=1.4)damage(o,dmg);}});return;}
+    const mk=ring(0xffd27a,1.0,0.35);mk.position.set(to.x,0.1,to.z);scene.add(mk);
+    const dur=0.75;let el=0;G.q=G.q||[];const th=efkPlay('fireball',from,0.14,1.6);
+    G.q.push({t:dur,step:(dt)=>{el+=dt;const u=Math.min(1,el/dur);ball.position.set(from.x+(to.x-from.x)*u,1.0+(to.y-1.0)*u+3.2*Math.sin(Math.PI*u),from.z+(to.z-from.z)*u);if(th){try{th.setLocation(ball.position.x,ball.position.y,ball.position.z);}catch(e){}}},
+      fn:()=>{scene.remove(ball);scene.remove(mk);const rm=ring(0xff9a4a,1.0,0.6);rm.position.set(to.x,0.12,to.z);addFx(rm,0.35);
+        if(th){try{th.stop();}catch(e){}}efkPlay('meteo',new THREE.Vector3(to.x,0,to.z),0.22,2.0);
+        for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)])if(Math.hypot(o.obj.position.x-to.x,o.obj.position.z-to.z)<=1.0)damage(o,dmg);}});return;}
 }
 let BIGI=0;
 function castBig(which){
@@ -679,7 +682,10 @@ async function efkInit(){
                ['powerup','./assets/effekseer/effects/nextsoft/PowerUp.efk'],
                ['tornade','./assets/effekseer/effects/nextsoft/MagicTornade.efk'],
                ['meteo','./assets/effekseer/effects/nextsoft/MagicMeteo.efk'],
-               ['thunder','./assets/effekseer/effects/nextsoft/MagicThunder.efk']];
+               ['thunder','./assets/effekseer/effects/nextsoft/MagicThunder.efk'],
+               ['toonwater','./assets/effekseer/effects/tktk/ToonWater.efk']];
+  const XL=new URLSearchParams(location.search).get('xfx'); // 검증용: 후보 효과 추가 로드(id=경로,…)
+  if(XL)for(const q of XL.split(',')){const [i2,u2]=q.split('=');loads.push([i2,'./assets/effekseer/effects/'+u2]);}
   await Promise.all(loads.map(([id,url])=>new Promise((res,rej)=>{
     const e=ctx.loadEffect(url,1,()=>res(),(w,p)=>rej(new Error(url+' '+w+' '+(p||'')))); // onload는 인자 없음 → 반환값 사용
     eff[id]=e;})));
@@ -721,13 +727,17 @@ function update(dt){
   G.squad.position.z-=CFG.fwdSpeed*dt;
   G.squad.position.x+=(G.x-G.squad.position.x)*Math.min(1,dt*10);
   const sq=G.squad.position;
-  { // 가이드: 사선대 경계 2줄 — corridorW와 같은 식(보이는 범위=실제 타격 범위)
-    let k=corridorK();const len=CLASSES[G.cls].range+3.5;const hE=envHalf(G.cls,growth(G.cls,G.allies.length));let x0=0.6;if(0.6+k*len>hE){k=0;x0=hE;} // 고정 총 폭 상자에 닿으면 평행선: 표시 = 실제 최대 타격 폭
-    const gAng=Math.atan(k);
-    for(const [m,sgn] of [[G.guideL,-1],[G.guideR,1]]){
-      m.position.set(sq.x+sgn*(x0+k*len/2),0.06,sq.z-0.6-len/2);
-      m.rotation.z=-sgn*gAng;
-      m.scale.y=(len*Math.sqrt(1+k*k))/11;}
+  { // 가이드: 사선대 경계 2줄 — corridorW(실제 조준·충돌 판정 함수)를 그대로 샘플링해 그림: 보이는 모양 = 실제 타격 범위(성장·고정 총 폭 상자 반영)
+    const N=14;if(!G.guideStrips){G.guideL.visible=false;G.guideR.visible=false;
+      const mk=()=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array((N+1)*2*3),3));
+        const idx=[];for(let i=0;i<N;i++){const a0=i*2;idx.push(a0,a0+1,a0+2,a0+1,a0+3,a0+2);}g.setIndex(idx);
+        const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.12,depthWrite:false,side:THREE.DoubleSide}));m.frustumCulled=false;scene.add(m);return m;};
+      G.guideStrips=[mk(),mk()];}
+    const len=CLASSES[G.cls].range;
+    [-1,1].forEach((sgn,si)=>{const pos=G.guideStrips[si].geometry.attributes.position;
+      for(let i=0;i<=N;i++){const dz=len*i/N;const hw=corridorW(dz);const z=sq.z-0.6-dz;
+        pos.setXYZ(i*2,sq.x+sgn*hw,0.06,z);pos.setXYZ(i*2+1,sq.x+sgn*(hw+0.07),0.06,z);}
+      pos.needsUpdate=true;});
   }
   // stage spawning
   G.layout.forEach((e,i)=>{
@@ -807,7 +817,7 @@ function update(dt){
       if(!hit)for(const b of G.blocks)if(b.hp>0)seg(b,p.waveRad?p.waveRad+0.1:0.7);
       if(hit){G.statH++;const hp2=hit.obj.position.clone();hp2.y=0.8;
         if(G.fxT<=0){efkPlay(p.hitEfk||'hit',hp2,(p.owner.cfg.fxScale||0.4)*(fxTier()>=2?1.3:1),p.owner.cfg.fxSpeed||1.4);G.fxT=0.25;} // 2단계~ 명중 섬광 확대(가값)
-        if(p.slow&&hit.kind==='foe')hit.slowT=p.slow;
+        if(p.slow&&hit.kind==='foe'){hit.slowT=p.slow;efkPlay('toonwater',hp2,0.12,1.8);}
         if(p.knock>1&&hit.kind==='foe')hit.obj.position.z-=0.2*(p.knock-1); // 충격파 넉백(보임이 성장 체감)
         damage(hit,p.dmg);
         if(p.aoe>0){ // 메이지 폭발: 링=실제 피해 영역
