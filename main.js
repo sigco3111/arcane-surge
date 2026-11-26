@@ -86,7 +86,7 @@ const CFG={
 };
 const CLASSES={
   Knight:{u:'Knight.glb',s:0.47,dmg:6,cd:0.9,range:9.5,kind:'bolt',color:0xffe27a,hitEfk:'hit',fxScale:0.22,fxSpeed:2.1,anim:'1H_Melee_Attack_Stab',w:{slot:'handslotr',u:'weapons/spear_A.gltf'}},
-  Barbarian:{u:'Barbarian.glb',s:0.40,dmg:14,cd:1.25,range:9.5,kind:'wave',color:0xff7a2a,hitEfk:'ember',fxScale:0.07,fxSpeed:2.4,anim:'2H_Melee_Attack_Spin'},
+  Barbarian:{u:'Barbarian.glb',s:0.40,dmg:14,cd:1.25,range:9.5,kind:'wave',color:0xff7a2a,hitEfk:'hit',fxScale:0.1,fxSpeed:2.4,anim:'2H_Melee_Attack_Spin'}, // hit로 교체: ember 잔여 화염이 다중 명중 피크에서 누적되는 문제 차단
   Rogue:{u:'Rogue.glb',s:0.47,dmg:4,cd:0.55,range:10.5,kind:'shard',color:0x9fdcff,hitEfk:'cold',fxScale:0.11,fxSpeed:2.6,anim:'2H_Ranged_Shoot',w:{slot:'handslotl',u:'weapons/bow_A_withString.gltf'}},
   Mage:{u:'Mage.glb',s:0.38,dmg:9,cd:1.15,range:10.5,kind:'fire',color:0xff7a2a,hitEfk:'flame',fxScale:0.11,fxSpeed:2.8,anim:'Spellcast_Shoot',w:{slot:'handslotr',u:'weapons/wand.gltf'}},
 };
@@ -348,7 +348,7 @@ function fireVolley(c,n,gr){ // 일제사격 1회: gr.s갈래 부채꼴, 인원�
 function spawnVolleyBolt(c,gr,from,ang,dmg,n){
   const grp=new THREE.Group();let mesh;
   if(c.kind==='fire'){mesh=new THREE.Mesh(new THREE.SphereGeometry(0.12,10,10),new THREE.MeshBasicMaterial({color:0xffe0a0}));grp.add(mesh);}
-  else if(c.kind==='wave'){mesh=new THREE.Mesh(new THREE.BoxGeometry(0.5*gr.waveW,0.7,0.35),new THREE.MeshBasicMaterial({color:c.color,transparent:true,opacity:0.75}));grp.add(mesh);}
+  else if(c.kind==='wave'){mesh=new THREE.Mesh(new THREE.BoxGeometry(0.5*gr.waveW,0.55,0.35),new THREE.MeshBasicMaterial({color:c.color,transparent:true,opacity:0.55}));grp.add(mesh);}
   else if(c.kind==='shard'){mesh=new THREE.Mesh(new THREE.ConeGeometry(0.13,0.8,6),new THREE.MeshBasicMaterial({color:c.color}));mesh.rotation.x=-Math.PI/2;grp.add(mesh);grp.add(glowSprite(c.color,0.55));}
   else{mesh=new THREE.Mesh(new THREE.OctahedronGeometry(0.16),new THREE.MeshBasicMaterial({color:c.color}));mesh.scale.set(0.7*(gr.big?1.7:1),0.7*(gr.big?1.7:1),1.8*(gr.big?1.4:1));grp.add(mesh);}
   grp.position.copy(from);grp.rotation.y=ang;scene.add(grp);
