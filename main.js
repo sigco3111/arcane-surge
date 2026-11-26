@@ -318,6 +318,7 @@ function fireVolley(c,n,gr){ // 일제사격 1회: gr.s갈래 부채꼴, 인원�
     spawnVolleyBolt(c,gr,from,ang,perDmg,n);
   }
   if(gr.aux>0)for(let i=0;i<gr.aux;i++)spawnAuxBolt(c,from,perDmg*0.6);
+  efkPlay(c.hitEfk||'hit',from,0.20,1.8); // 발사구 섬광: 발사→궤적→명중 연결의 시작점
   for(const u of G.allies)playOnce(u,c.anim,'Walking_A');
 }
 function spawnVolleyBolt(c,gr,from,ang,dmg,n){
@@ -332,7 +333,8 @@ function spawnVolleyBolt(c,gr,from,ang,dmg,n){
   const maxDist=c.kind==='wave'?(gr.wave||4):c.range+3.5;
   const p={mesh:grp,target:null,owner:{cfg:c,fxT:0},dmg,speed:spd,kind:c.kind,color:c.color,hitEfk:c.hitEfk||'hit',
     fx0:from.x,fz0:from.z,vel,maxDist,traveled:0,pierce:c.kind==='wave'?99:gr.pierce,hitSet:new Set(),aoe:gr.aoe||0,knock:c.kind==='wave'?gr.knock:1,waveRad:c.kind==='wave'?0.55*gr.waveW:0};
-  if(c.kind==='fire')p.efkH=efkPlay('fireball',from,0.30,1.0);
+  const TRAIL={bolt:'suzsword',wave:'ember',shard:'cold',fire:'fireball'}; // 병종별 궤적(기존 effekseer 에셋)
+  const tId=TRAIL[c.kind];if(tId)p.efkH=efkPlay(tId,from,c.kind==='fire'?0.30:0.22,1.0);
   G.projs.push(p);G.statB++;
 }
 function spawnAuxBolt(c,from,dmg){ // 후드 특성: 유도 보조탄 — 적만 추적(블록·감옥 무시)
@@ -343,7 +345,8 @@ function spawnAuxBolt(c,from,dmg){ // 후드 특성: 유도 보조탄 — 적만
   if(!best)return;
   const mesh=new THREE.Mesh(new THREE.ConeGeometry(0.06,0.5,5),new THREE.MeshBasicMaterial({color:0xc79fff})); // 가는 보라탄
   mesh.rotation.x=-Math.PI/2;const grp=new THREE.Group();grp.add(mesh);grp.position.copy(from);scene.add(grp);
-  G.projs.push({mesh:grp,target:best,owner:{cfg:c,fxT:0},dmg,speed:PSPD*0.8,kind:'aux',color:0xc79fff,hitEfk:'aura',fx0:from.x,fz0:from.z});
+  const pa={mesh:grp,target:best,owner:{cfg:c,fxT:0},dmg,speed:PSPD*0.8,kind:'aux',color:0xc79fff,hitEfk:'aura',fx0:from.x,fz0:from.z};
+  pa.efkH=efkPlay('aura',from,0.18,1.0);G.projs.push(pa);
 }
 function nearestTarget(unit){
   const wp=unit.obj.getWorldPosition(new THREE.Vector3());
@@ -413,6 +416,8 @@ function damage(t,d){
 function killUnit(t){
   if(t.kind==='foe'){
     G.kills++;G.combo++;G.comboT=4.0; // 콤보 창(시제품 4.0초, 계측 후 조정)
+    if(G.combo>=2){const tier=G.combo>=25?['#ff5a4a',2.8]:G.combo>=10?['#ff9a3c',2.2]:G.combo>=5?['#ffd966',1.7]:['#ffffff',1.3];
+      const lc=labelSprite('\u00d7'+G.combo,tier[0],tier[1]);lc.position.set(t.obj.position.x,2.0,t.obj.position.z);addFx(lc,0.9);} // 콤보 숫자 팝: 처치 지점 머리 위(가림 방지), 단계별 크기·색
     const TITLES={25:'연전연승',50:'파죽지세',100:'천하무적'};
     if(TITLES[G.combo]){const l=labelSprite(TITLES[G.combo]+' ×'+G.combo,'#ffd966',3.6);l.position.set(G.squad.position.x,3.6,G.squad.position.z-6);addFx(l,1.6);}
     const dp=t.obj.position.clone();dp.y=0.9;efkPlay(t.isBoss?'featherbomb':'toonhit',dp,t.isBoss?0.40:0.30,1.5);
