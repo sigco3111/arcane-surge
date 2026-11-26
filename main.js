@@ -92,6 +92,8 @@ const FOES={
 let TS=parseFloat(new URLSearchParams(location.search).get('ts'))||1; // 테스트용 시간배율(전체 균일)
 window.__setTS=v=>{TS=v;}; // 시연: 실행 중 배율 변경 훅
 window.__convert=c=>convertSquad(c); // 시연: 전환 훅
+window.__setN=async n=>{n=Math.max(1,Math.min(16,n|0));while(G.allies.length>n){const u=G.allies.pop();G.squad.remove(u.obj);}while(G.allies.length<n)await spawnAlly(G.cls);}; // 테스트: 인원 수 직접 설정
+window.__resetMul=()=>{G.dmgMul=1;}; // 테스트: 공격력 배율 초기화
 window.__boltDemo=(spd=6)=>{ // 시연: 실제 탄체 메시의 저속 비행 확인용(모양·궤적 전용)
   const mk=(kind,color,x,z)=>{const grp=new THREE.Group();let mesh;
     if(kind==='shard'){mesh=new THREE.Mesh(new THREE.ConeGeometry(0.09,1.8,6),new THREE.MeshBasicMaterial({color}));mesh.rotation.x=-Math.PI/2;}
