@@ -448,7 +448,7 @@ function killUnit(t){
     if(TITLES[G.combo]){const l=labelSprite(TITLES[G.combo]+' ×'+G.combo,'#ffd966',3.6);l.position.set(G.squad.position.x,3.6,G.squad.position.z-6);addFx(l,1.6);}
     const dp=t.obj.position.clone();dp.y=0.9;
     if(t.isBoss)efkPlay('featherbomb',dp,0.40,1.8);
-    else{const sp=sparkBurst((CLASSES[G.cls]||{}).color||0xffe9a8,1.0);sp.position.copy(dp);const fe=addFx(sp,0.24,false);fe.grow=1;fe.spark=sp.userData.mat;}
+    else{if((G.sparkT||0)<=0){const sp=sparkBurst((CLASSES[G.cls]||{}).color||0xffe9a8,1.0);sp.position.copy(dp);const fe=addFx(sp,0.24,false);fe.grow=1;fe.spark=sp.userData.mat;G.sparkT=0.12;}} // 다중 동시 처치 피크 제한
     if(G.kills%CFG.killsPerLevel===0){G.level++;G.dmgMul*=CFG.levelMul;
       {const rp=ring(0xffd966,1.2,0.8);rp.position.set(G.squad.position.x,0.12,G.squad.position.z);addFx(rp,0.6);} // 밝은 중심면 없는 얇은 고리 표시(비교빌드)
       const l=labelSprite('레벨 업!','#ffe27a',2.4);l.position.set(G.squad.position.x,2.6,G.squad.position.z-1);addFx(l,1.6);}
@@ -639,7 +639,7 @@ function update(dt){
   if(ahead2)setStage(G.stage+1); // 경계 전에 다음 구역 생성 — 잔적 정리와 다음 파도가 겹쳐 공백 제거
   // allies: 통일 부대 일제사격 — 탄 수/패턴은 성장 단계, 인원은 탄 1발 피해로 환산(설계 v2, 수치 초안)
   for(const u of G.allies)u.mixer.update(dt);
-  G.fxT=Math.max(0,G.fxT-dt);
+  G.fxT=Math.max(0,G.fxT-dt);G.sparkT=Math.max(0,(G.sparkT||0)-dt);
   const c=CLASSES[G.cls],n=G.allies.length,gr=growth(G.cls,n);
   if(G.burstLeft>0){G.burstT-=dt;if(G.burstT<=0){fireVolley(c,n,gr);G.burstLeft--;G.burstT=0.09;}}
   else{G.vcd-=dt;
