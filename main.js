@@ -114,12 +114,12 @@ function growth(cls,n){const g={...GROWTH_DEF};for(const [k,v] of (GROWTH[cls]||
   {const k=(CLASSES[cls]||{}).kind;if(k!=='wave'&&k!=='spread'&&!(typeof SPECIAL_KINDS!=='undefined'&&SPECIAL_KINDS.has(k)))g.s=Math.max(g.s,Math.min(n,9));} // 보이는 대원 수 = 발사 줄 수(최대 9), 발당 피해는 줄 수로 나뉘어 총 화력 불변
   g.fan=0; // 가로 나란히 발사로 전환: 각도 부채꼴 없음(Ranger 산탄은 별도 고정)
   return g;}
-const HITR={Knight:0.35,Rogue:0.35,Mage:0.35,Rogue_Hooded:0.35,Ranger:0.35,Glaive:0.5,FrostLancer:0.4,Barbarian:0}; // 탄 명중 반경(없으면 즉시 판정 0)
+const HITR={Knight:0.25,Rogue:0.35,Mage:0.35,Rogue_Hooded:0.35,Ranger:0.35,Glaive:0.5,FrostLancer:0.4,Barbarian:0}; // 탄 명중 반경(없으면 즉시 판정 0)
 const XTRA={Sorcerer:0.8,Artillery:1.0}; // 연쇄 추가 반경(조준선 0.7→1.5) / 포격 폭발 반경
 function hitR(cls,gr){return cls==='Barbarian'?0.55*(gr.waveW||1):(HITR[cls]||0);}
-function latHalf(cls,gr){const e=ENV[cls];if(!e||e.l)return 0;const room=Math.max(0,e.w/2-hitR(cls,gr)-(gr.aoe||0));return Math.min(Math.max(0,((gr.s||1)-1))*LAT_STEP/2,room*0.8);} // 가로 나란히 발사 편대의 반폭(총 폭 상자 안)
-const LAT_STEP=0.5;
-function envHalf(cls,gr){const e=ENV[cls];if(!e)return 9;if(e.l)return e.l;return Math.max(0.15,e.w/2-hitR(cls,gr)-(gr.aoe||0)-latHalf(cls,gr));} // 조준 레인 반폭
+function latHalf(cls,gr){const e=ENV[cls];if(!e||e.l)return 0;const room=Math.max(0,e.w/2-hitR(cls,gr)-(gr.aoe||0));return Math.min(Math.max(0,((gr.s||1)-1))*LAT_STEP/2,Math.max(0,room-LANE_MIN));} // 가로 나란히 발사 편대의 반폭(총 폭 상자 안)
+const LAT_STEP=0.5;const LANE_MIN=0.15; // 조준 레인 최소 반폭: 총 폭(레인+편대+탄 반경) <= 병종 폭 유지
+function envHalf(cls,gr){const e=ENV[cls];if(!e)return 9;if(e.l)return e.l;return Math.max(LANE_MIN,e.w/2-hitR(cls,gr)-(gr.aoe||0)-latHalf(cls,gr));} // 조준 레인 반폭
 function reachHalf(cls,gr,dz){const e=ENV[cls];const lane=Math.min(0.6+Math.max(0,dz)*(0.08+Math.tan((gr.fan||0)*Math.PI/360)),envHalf(cls,gr));let r=lane+latHalf(cls,gr)+hitR(cls,gr)+(gr.aoe||0)+(XTRA[cls]||0);if(cls==='Ranger')r=Math.max(r,Math.tan(10.5*Math.PI/180)*Math.min(Math.max(0,dz),6)+0.35);return r;} // 실제 타격이 닿는 최대 반폭(레인+탄 반경+폭발/연쇄)
 window.__reach=(cls,n,dz)=>{const gr=growth(cls,n);return reachHalf(cls,gr,dz);};
 const CAPTIVE_CYCLE=['Mage','Rogue','Barbarian','Rogue_Hooded','Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism','Artillery']; // 구출 감옥 순환(현재 병종 제외는 스폰 시 결정)
