@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>아케인 서지 — 1지역 (수직 슬라이스)</title>
+<title>아케인 서지</title>
 <style>
   @font-face{font-family:'Orbitron';src:url('./assets/fonts/Orbitron.ttf') format('truetype');font-weight:400 900;font-display:swap;}
   @font-face{font-family:'Pretendard';src:url('./assets/fonts/Pretendard-Regular.woff2') format('woff2');font-weight:400;font-display:swap;}
@@ -35,12 +35,37 @@
   @keyframes cbn5{0%{transform:scale(1);}40%{transform:scale(1.5);}100%{transform:scale(1);}}
   @keyframes cbb{0%{transform:scaleX(1.7);opacity:1;}100%{transform:scaleX(1);opacity:.5;}}
   @keyframes cbb5{0%{transform:scaleX(2.2);opacity:1;}100%{transform:scaleX(1);opacity:.5;}}
+  .left{display:flex;flex-direction:column;gap:4px;max-width:58%;}
+  .score{line-height:1.15;margin-top:2px;}
+  .score .cur b{font-family:'Orbitron','Pretendard',sans-serif;font-size:26px;font-weight:800;letter-spacing:.5px;}
+  .score .cur span{font-size:12px;opacity:.85;}
+  .score .bestl{font-size:12px;color:#ffe9a8;} .score .bestl em{display:none;font-style:normal;color:#7dff9a;font-weight:700;}
+  .score.rec .cur b{color:#7dff9a;} .score.rec .bestl em{display:inline;}
+  .mgauge{width:140px;margin-top:2px;} .mbar{height:6px;border-radius:3px;background:rgba(255,255,255,.22);overflow:hidden;} .mbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ff9a3c,#ffd966);}
+  .mtxt{font-size:10px;margin-top:2px;color:#ffe9c8;white-space:nowrap;}
+  .banner{position:fixed;left:50%;top:24%;transform:translate(-50%,-8px);opacity:0;pointer-events:none;z-index:6;text-align:center;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.8);transition:opacity .25s,transform .25s;white-space:nowrap;}
+  .banner.show{opacity:1;transform:translate(-50%,0);} .banner b{display:block;font-size:24px;} .banner span{display:block;font-size:13px;margin-top:3px;opacity:.95;}
+  .banner.boss b{color:#ffcc55;font-size:28px;} .banner.magic b{color:#ffb25a;} .banner.stage b{font-size:20px;}
+  #end{justify-content:flex-start;overflow-y:auto;padding:28px 14px 40px;}
+  .dash{width:100%;max-width:360px;text-align:left;color:#e6ecff;}
+  .dash .hero{text-align:center;margin-bottom:10px;} .dash .lab{font-size:12px;color:#aab5d8;} .dash .big{font-family:'Orbitron','Pretendard',sans-serif;font-size:54px;font-weight:800;line-height:1.1;} .dash .big small{font-size:18px;}
+  .dash .recline{font-size:14px;color:#ffe9a8;margin-top:2px;} .dash .recline.rec{color:#7dff9a;font-weight:700;font-size:16px;}
+  .dash .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;} .dash .card{background:rgba(255,255,255,.08);border-radius:8px;padding:8px 4px;text-align:center;} .dash .card b{display:block;font-size:17px;} .dash .card span{font-size:10px;color:#aab5d8;}
+  .dash h3{font-size:13px;margin:16px 0 6px;color:#cfd8f0;} .dash .chart{background:rgba(255,255,255,.05);border-radius:8px;display:block;}
+  .dash .legend{font-size:10px;color:#aab5d8;margin-top:4px;} .dash .legend i{display:inline-block;width:9px;height:9px;margin:0 3px 0 8px;vertical-align:-1px;border-radius:2px;}
+  .dash .cols{display:flex;align-items:flex-end;gap:3px;height:90px;background:rgba(255,255,255,.05);border-radius:8px;padding:6px 6px 0;} .dash .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;min-width:0;}
+  .dash .col i{display:block;width:100%;min-height:2px;border-radius:3px 3px 0 0;} .dash .col em{font-size:8px;font-style:normal;color:#cfd8f0;} .dash .col span{font-size:9px;color:#8c98c4;}
+  .dash .stack{display:flex;height:14px;border-radius:7px;overflow:hidden;background:rgba(255,255,255,.08);} .dash .stack i{display:block;height:100%;}
+  .dash .br{display:flex;align-items:center;gap:6px;margin:3px 0;font-size:12px;} .dash .bl{width:86px;color:#cfd8f0;} .dash .bt{flex:1;height:9px;background:rgba(255,255,255,.08);border-radius:5px;overflow:hidden;} .dash .bt i{display:block;height:100%;border-radius:5px;} .dash .bv{width:44px;text-align:right;}
+  #end .go{margin-top:20px;}
   .fps{position:fixed;left:10px;bottom:10px;color:#9fb3d8;font-size:10px;z-index:5;opacity:.8;pointer-events:none;}
 </style>
 </head>
 <body>
 <div class="hud">
-  <div class="stage"><span id="stageName">1-1 · 시작의 들판</span><small id="sub">수직 슬라이스 · 수치는 초안</small></div>
+  <div class="left"><div class="stage"><span id="stageName">스테이지 1 · 시작의 들판</span><small id="sub"></small></div>
+    <div class="score" id="scoreBox"><div class="cur"><b id="dist">0</b><span> m</span></div><div class="bestl">🏆 최고 <b id="best">0</b> m<em> 신기록!</em></div></div>
+    <div class="mgauge"><div class="mbar"><i id="magicBar"></i></div><div class="mtxt" id="magicTxt"></div></div></div>
   <div class="stats">
     <div class="hearts" id="hearts">♥♥♥</div>
     <div>대원 <b id="squadN">1</b> · 레벨 <b id="lv">1</b></div>
@@ -49,14 +74,15 @@
   </div>
 </div>
 <div class="fps" id="fps"></div>
+<div class="banner" id="banner"></div>
 <div class="overlay" id="title">
   <h1>아케인 서지</h1>
-  <p>1지역 · 시작의 들판 (5구간)<br>소대를 좌우로 드래그(PC는 ←/→ 또는 A/D 키)해 이동합니다.<br>공격은 자동입니다. 보물상자를 부수면 대원이 늘어납니다.</p>
+  <p>끝없이 이어지는 길을 걸어 최고 거리를 갱신하세요.<br>소대를 좌우로 드래그(PC는 ←/→ 또는 A/D 키)해 이동합니다.<br>공격은 자동입니다. 보물상자를 부수면 대원이 늘어나고, 5스테이지마다 보스가 나타납니다.</p>
   <button class="go" id="startBtn" disabled>로딩 중… 0%</button>
 </div>
 <div class="overlay hidden" id="end">
   <h1 id="endTitle"></h1>
-  <p id="endBody"></p>
+  <div id="endBody" class="dash"></div>
   <button class="go" id="retryBtn">다시 시작</button>
 </div>
 <script src="./assets/effekseer/effekseer.min.js"></script>
