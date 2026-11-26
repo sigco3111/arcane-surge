@@ -40,8 +40,9 @@ function labelSprite(text,color='#ffffff',w=2.2,ttl=1.4){
 function comboSprite(txt,color,w){ // 콤보 전용: 큰 볼드 + 색 글로우 + 팝 애니(기하·텍스트만, 자체 이펙트 아님)
   const c=document.createElement('canvas');c.width=512;c.height=160;const g=c.getContext('2d');
   g.font='800 92px "Noto Sans KR", sans-serif';g.textAlign='center';g.textBaseline='middle';
-  g.lineWidth=14;g.strokeStyle='rgba(20,10,0,0.85)';g.strokeText(txt,256,80);
-  g.shadowColor=color;g.shadowBlur=22;g.fillStyle=color;g.fillText(txt,256,80);g.fillText(txt,256,80);
+  g.lineWidth=18;g.strokeStyle='rgba(15,8,0,0.95)';g.strokeText(txt,256,80);
+  g.shadowColor=color;g.shadowBlur=26;g.fillStyle='#ffffff';g.fillText(txt,256,80);
+  g.shadowBlur=0;g.fillStyle=color;g.globalAlpha=0.55;g.fillText(txt,256,80);g.globalAlpha=1; // 흰 심지+색 광택: 황토 배경에서도 대비 확보
   const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthWrite:false,depthTest:false}));
   sp.scale.set(w,w*0.3125,1);return sp;}
@@ -70,12 +71,12 @@ const CFG={
   stageLen:55,
 };
 const CLASSES={
-  Knight:{u:'Knight.glb',s:0.47,dmg:6,cd:0.9,range:9.5,kind:'bolt',color:0xffe27a,hitEfk:'hit',fxScale:0.30,fxSpeed:1.6,anim:'1H_Melee_Attack_Stab',w:{slot:'handslotr',u:'weapons/spear_A.gltf'}},
-  Barbarian:{u:'Barbarian.glb',s:0.40,dmg:14,cd:1.25,range:9.5,kind:'wave',color:0xff7a2a,hitEfk:'ember',fxScale:0.10,fxSpeed:1.9,anim:'2H_Melee_Attack_Spin'},
-  Rogue:{u:'Rogue.glb',s:0.47,dmg:4,cd:0.55,range:10.5,kind:'shard',color:0x9fdcff,hitEfk:'cold',fxScale:0.15,fxSpeed:2.2,anim:'2H_Ranged_Shoot',w:{slot:'handslotl',u:'weapons/bow_A_withString.gltf'}},
-  Mage:{u:'Mage.glb',s:0.38,dmg:9,cd:1.15,range:10.5,kind:'fire',color:0xff7a2a,hitEfk:'flame',fxScale:0.15,fxSpeed:2.4,anim:'Spellcast_Shoot',w:{slot:'handslotr',u:'weapons/wand.gltf'}},
+  Knight:{u:'Knight.glb',s:0.47,dmg:6,cd:0.9,range:9.5,kind:'bolt',color:0xffe27a,hitEfk:'hit',fxScale:0.22,fxSpeed:2.1,anim:'1H_Melee_Attack_Stab',w:{slot:'handslotr',u:'weapons/spear_A.gltf'}},
+  Barbarian:{u:'Barbarian.glb',s:0.40,dmg:14,cd:1.25,range:9.5,kind:'wave',color:0xff7a2a,hitEfk:'ember',fxScale:0.07,fxSpeed:2.4,anim:'2H_Melee_Attack_Spin'},
+  Rogue:{u:'Rogue.glb',s:0.47,dmg:4,cd:0.55,range:10.5,kind:'shard',color:0x9fdcff,hitEfk:'cold',fxScale:0.11,fxSpeed:2.6,anim:'2H_Ranged_Shoot',w:{slot:'handslotl',u:'weapons/bow_A_withString.gltf'}},
+  Mage:{u:'Mage.glb',s:0.38,dmg:9,cd:1.15,range:10.5,kind:'fire',color:0xff7a2a,hitEfk:'flame',fxScale:0.11,fxSpeed:2.8,anim:'Spellcast_Shoot',w:{slot:'handslotr',u:'weapons/wand.gltf'}},
 };
-CLASSES.Rogue_Hooded={...CLASSES.Rogue,u:'Rogue_Hooded.glb',color:0xc79fff,hitEfk:'aura',homing:true,fxScale:0.2}; // 특수 유닛만 유도 탄(사용자 결정 20:02)
+CLASSES.Rogue_Hooded={...CLASSES.Rogue,u:'Rogue_Hooded.glb',color:0xc79fff,hitEfk:'aura',homing:true,fxScale:0.13}; // 특수 유닛만 유도 탄(사용자 결정 20:02)
 const START_SQUAD=['Knight','Knight','Knight','Knight']; // 통일 부대(사용자 07:36): 시작 나이트 4명
 // 매 인원 성장(시제품 수치 초안): [도달 인원, 변화] 누적 — 전 단계가 눈에 보이는 변화(탄 수/리듬/부채꼴/관통/폭/범위/특성)
 const GROWTH_DEF={s:1,burst:1,fan:0,pierce:3,rate:1,dmg:1,big:0,aoe:0,wave:0,waveW:1,knock:1,aux:0};
@@ -326,7 +327,7 @@ function fireVolley(c,n,gr){ // 일제사격 1회: gr.s갈래 부채꼴, 인원�
     spawnVolleyBolt(c,gr,from,ang,perDmg,n);
   }
   if(gr.aux>0)for(let i=0;i<gr.aux;i++)spawnAuxBolt(c,from,perDmg*0.6);
-  efkPlay(c.hitEfk||'hit',from,0.20,1.8); // 발사구 섬광: 발사→궤적→명중 연결의 시작점
+  efkPlay(c.hitEfk||'hit',from,0.15,2.0); // 발사구 섬광: 발사→궤적→명중 연결의 시작점
   for(const u of G.allies)playOnce(u,c.anim,'Walking_A');
 }
 function spawnVolleyBolt(c,gr,from,ang,dmg,n){
@@ -342,7 +343,8 @@ function spawnVolleyBolt(c,gr,from,ang,dmg,n){
   const p={mesh:grp,target:null,owner:{cfg:c,fxT:0},dmg,speed:spd,kind:c.kind,color:c.color,hitEfk:c.hitEfk||'hit',
     fx0:from.x,fz0:from.z,vel,maxDist,traveled:0,pierce:c.kind==='wave'?99:gr.pierce,hitSet:new Set(),aoe:gr.aoe||0,knock:c.kind==='wave'?gr.knock:1,waveRad:c.kind==='wave'?0.55*gr.waveW:0};
   const TRAIL={bolt:'suzsword',wave:'ember',shard:'cold',fire:'fireball'}; // 병종별 궤적(기존 effekseer 에셋)
-  const tId=TRAIL[c.kind];if(tId)p.efkH=efkPlay(tId,from,c.kind==='fire'?0.30:0.22,1.0);
+  const TSC={bolt:0.11,wave:0.07,shard:0.09,fire:0.18}; // 궤적은 작게·빠르게 — 입자 덩어리가 공격 형태를 가리지 않도록
+  const tId=TRAIL[c.kind];if(tId)p.efkH=efkPlay(tId,from,TSC[c.kind],1.6);
   G.projs.push(p);G.statB++;
 }
 function spawnAuxBolt(c,from,dmg){ // 후드 특성: 유도 보조탄 — 적만 추적(블록·감옥 무시)
@@ -354,7 +356,7 @@ function spawnAuxBolt(c,from,dmg){ // 후드 특성: 유도 보조탄 — 적만
   const mesh=new THREE.Mesh(new THREE.ConeGeometry(0.06,0.5,5),new THREE.MeshBasicMaterial({color:0xc79fff})); // 가는 보라탄
   mesh.rotation.x=-Math.PI/2;const grp=new THREE.Group();grp.add(mesh);grp.position.copy(from);scene.add(grp);
   const pa={mesh:grp,target:best,owner:{cfg:c,fxT:0},dmg,speed:PSPD*0.8,kind:'aux',color:0xc79fff,hitEfk:'aura',fx0:from.x,fz0:from.z};
-  pa.efkH=efkPlay('aura',from,0.18,1.0);G.projs.push(pa);
+  pa.efkH=efkPlay('aura',from,0.11,1.4);G.projs.push(pa);
 }
 function nearestTarget(unit){
   const wp=unit.obj.getWorldPosition(new THREE.Vector3());
@@ -426,10 +428,11 @@ function killUnit(t){
     G.kills++;G.combo++;G.comboT=4.0; // 콤보 창(시제품 4.0초, 계측 후 조정)
     if(G.combo>=2){const tier=G.combo>=25?['#ff5a4a',2.6]:G.combo>=10?['#ff9a3c',2.2]:G.combo>=5?['#ffd966',1.8]:['#ffffff',1.4];
       const lc=comboSprite('\u00d7'+G.combo,tier[0],tier[1]);lc.position.set(t.obj.position.x,2.0,t.obj.position.z);
-      const fe=addFx(lc,0.95);fe.vel=new THREE.Vector3((Math.random()-0.5)*0.5,1.2,0);fe.popW=tier[1];} // 콤보 숫자 팝: 처치 지점 머리 위(가림 방지), 단계별 크기·색·팝
+      const fe=addFx(lc,1.1);fe.vel=new THREE.Vector3((Math.random()-0.5)*0.5,1.2,0);fe.popW=tier[1];fe.hold=0.45; // 선명 유지 후 소멸
+      (G.comboPops=G.comboPops||[]).push(fe);while(G.comboPops.length>3){const o=G.comboPops.shift();o.t=0;}} // 동시 표시 3개 제한
     const TITLES={25:'연전연승',50:'파죽지세',100:'천하무적'};
     if(TITLES[G.combo]){const l=labelSprite(TITLES[G.combo]+' ×'+G.combo,'#ffd966',3.6);l.position.set(G.squad.position.x,3.6,G.squad.position.z-6);addFx(l,1.6);}
-    const dp=t.obj.position.clone();dp.y=0.9;efkPlay(t.isBoss?'featherbomb':'toonhit',dp,t.isBoss?0.40:0.26,1.5);
+    const dp=t.obj.position.clone();dp.y=0.9;efkPlay(t.isBoss?'featherbomb':'toonhit',dp,t.isBoss?0.40:0.22,1.8);
     if(G.kills%CFG.killsPerLevel===0){G.level++;G.dmgMul*=CFG.levelMul;
       {const rp=ring(0xffd966,1.2,0.8);rp.position.set(G.squad.position.x,0.12,G.squad.position.z);addFx(rp,0.6);} // 밝은 중심면 없는 얇은 고리 표시(비교빌드)
       const l=labelSprite('레벨 업!','#ffe27a',2.4);l.position.set(G.squad.position.x,2.6,G.squad.position.z-1);addFx(l,1.6);}
@@ -710,7 +713,7 @@ function update(dt){
   for(const f of [...fx]){f.t-=dt;
     if(f.vel){f.vel.y+=(f.grav||0)*dt;f.obj.position.addScaledVector(f.vel,dt);}
     if(f.popW){const e=Math.min(1,1-f.t/f.ttl);const k=e<0.3?0.5+(e/0.3)*0.6:1.1-0.12*Math.min(1,(e-0.3)/0.7);f.obj.scale.set(f.popW*k,f.popW*0.3125*k,1);}
-    if(f.fade&&f.obj.material)f.obj.material.opacity=Math.max(0,f.t/f.ttl);
+    if(f.fade&&f.obj.material)f.obj.material.opacity=f.hold?Math.max(0,Math.min(1,f.t/(f.ttl*(1-f.hold)))):Math.max(0,f.t/f.ttl);
     if(f.t<=0){scene.remove(f.obj);fx.splice(fx.indexOf(f),1);}}
   // HUD
   $('hearts').textContent='♥'.repeat(Math.max(0,G.lives))+'♡'.repeat(Math.max(0,CFG.lives-G.lives));
