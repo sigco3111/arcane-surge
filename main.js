@@ -426,10 +426,9 @@ function damage(t,d){
 function killUnit(t){
   if(t.kind==='foe'){
     G.kills++;G.combo++;G.comboT=4.0; // 콤보 창(시제품 4.0초, 계측 후 조정)
-    if(G.combo>=2){const tier=G.combo>=25?['#ff5a4a',2.6]:G.combo>=10?['#ff9a3c',2.2]:G.combo>=5?['#ffd966',1.8]:['#ffffff',1.4];
-      const lc=comboSprite('\u00d7'+G.combo,tier[0],tier[1]);lc.position.set(t.obj.position.x,2.0,t.obj.position.z);
-      const fe=addFx(lc,1.1);fe.vel=new THREE.Vector3((Math.random()-0.5)*0.5,1.2,0);fe.popW=tier[1];fe.hold=0.45; // 선명 유지 후 소멸
-      (G.comboPops=G.comboPops||[]).push(fe);while(G.comboPops.length>3){const o=G.comboPops.shift();o.t=0;}} // 동시 표시 3개 제한
+    if(G.combo>=2){const tier=G.combo>=25?['#ff5a4a',64]:G.combo>=10?['#ff9a3c',56]:G.combo>=5?['#ffd966',48]:['#ffffff',40]; // 강한 콤보 강조는 화면좌표 HUD 1개로(월드 팝 제거 — 적 머리 위 개별 피해수와 역할 분리)
+      const el=$('cbig');el.textContent='\u00d7'+G.combo;el.style.setProperty('--cbg',tier[0]);el.style.fontSize=tier[1]+'px';
+      el.classList.remove('pop');void el.offsetWidth;el.classList.add('pop');}
     const TITLES={25:'연전연승',50:'파죽지세',100:'천하무적'};
     if(TITLES[G.combo]){const l=labelSprite(TITLES[G.combo]+' ×'+G.combo,'#ffd966',3.6);l.position.set(G.squad.position.x,3.6,G.squad.position.z-6);addFx(l,1.6);}
     const dp=t.obj.position.clone();dp.y=0.9;efkPlay(t.isBoss?'featherbomb':'toonhit',dp,t.isBoss?0.40:0.22,1.8);
