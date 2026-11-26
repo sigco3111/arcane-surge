@@ -83,7 +83,7 @@ function sparkBurst(color,s=1){ // 링 없는 명중 스파크: 방사형 짧은
 // ---------- config (수치 전부 초안) ----------
 const CFG={
   fwdSpeed:1.7, dragClamp:2.1, defLine:2.6,
-  lives:3, killsPerLevel:8, levelMul:1.15,
+  lives:5, killsPerLevel:8, levelMul:1.15,
   stageLen:55,
 };
 const CLASSES={
@@ -259,8 +259,8 @@ function layoutSquad(){ // 뭉친 대형: 황금각 나선 배치, 인원이 늘
 
 async function spawnFoe(type,x,z,isBoss=false,wave){
   const f=isBoss?BOSS:FOES[type];
-  const hscale=1.28**(G.stage-1); // 원작 tide hs=1.3^(단계-1) 참고: 진행할수록 적 체력 증가
-  const sscale=isBoss?1:Math.min(1.5,1+0.07*(G.stage-1)); // 원작 참고: 단계가 갈수록 적 이동 가속
+  const hscale=1.28**(G.stage-1)*(G.stage===1?0.75:G.stage===2?0.88:1); // 초반 완화(11-27) // 원작 tide hs=1.3^(단계-1) 참고: 진행할수록 적 체력 증가
+  const sscale=isBoss?1:Math.min(1.5,1+0.07*(G.stage-1))*(G.stage===1?0.85:1); // 원작 참고: 단계가 갈수록 적 이동 가속
   const {root,anims}=await makeModel(A+f.u,f.s,isBoss?null:[1.05,0.8,0.8]);
   root.position.set(x,0,z);root.rotation.y=0;
   const unit={kind:'foe',type,isBoss,hp:Math.round(f.hp*hscale),maxHp:Math.round(f.hp*hscale),cfg:f,spd:f.spd*sscale,obj:root,hitT:0,...makeMixer(root,anims)};
@@ -317,7 +317,7 @@ function stageLayout(n){
   if(n<5){
     const foeTypes=['Warrior','Minion','Rogue','Mage'];
     [19,25,31,37,43,49,55,61].forEach((dz,w)=>{ // 원작 참고: 파도 수·밀도 상향(더 빨리 더 많이), 첫 파도는 접촉 여유 확보
-      const cnt=3+n;
+      const cnt=n===1?2+(w%2):3+n; // 1구간은 파도당 2~3마리(11-27 초반 완화)
       const cx=[-1.4,1.6,-0.6,1.2,-1.8,0.9,-1.2,1.7][w%8]; // 원작처럼 파도가 통로 이곳저곳에 뭉쳐 나옴 — 가만히 서 있으면 맞지 않는 파도가 생김
       for(let i=0;i<cnt;i++){
         const t=foeTypes[(w+i+n)%4];
@@ -347,7 +347,8 @@ function setStage(n){
 
 // ---------- combat ----------
 function corridorK(){const gr=growth(G.cls,G.allies.length);return 0.08+Math.tan((gr.fan||0)*Math.PI/360);} // 사선대 기울기: 기본 0.08 + 성장 부채꼴 반각
-function corridorW(dz){return Math.min(0.6+Math.max(0,dz)*corridorK(),envHalf(G.cls,growth(G.cls,G.allies.length)));} // 사선대 반폭 — 조준·발사·충돌·가이드 표시가 같은 기하에서 파생
+const AIM_PAD=1.4; // 11-27 피드백: 조준 레인이 너무 좁아 적이 있어도 발사/명중이 안 됨 -> 자동조준 여유폭
+function corridorW(dz){return Math.min(0.6+Math.max(0,dz)*corridorK(),envHalf(G.cls,growth(G.cls,G.allies.length)))+AIM_PAD;} // 사선대 반폭 — 조준·발사·충돌·가이드 표시가 같은 기하에서 파생
 function squadTarget(c){ // 부대 중심 기준, 사선대 안 가장 가까운 대상(적·블록·감옥 동일 규칙)
   const sx=G.squad.position.x,sz=G.squad.position.z;
   let best=null,bd=1e9;
@@ -365,14 +366,16 @@ function squadTarget(c){ // 부대 중심 기준, 사선대 안 가장 가까운
   return best;
 }
 const REC_DPS=5; // 구간1 권장 초당 화력(가값): 30 = 5 x 6초
-const EARLY_BONUS=3.9; // 사용자 11-26 22:06 "투사체 공격력이 더 높아야": 초반 보정을 더하는 방식(1명 +3.9, 보이는 대원 9명 상한까지 선형으로 0). 더하기라 대원이 늘 때 총 화력은 줄지 않음(연사/줄 수/피해 분배 구조 불변)
+const EARLY_BONUS=7.0; // 사용자 11-26 22:06 "투사체 공격력이 더 높아야": 초반 보정을 더하는 방식(1명 +3.9, 보이는 대원 9명 상한까지 선형으로 0). 더하기라 대원이 늘 때 총 화력은 줄지 않음(연사/줄 수/피해 분배 구조 불변)
 const FORCE=n=>2.6*(0.7+0.3*Math.min(16,Math.max(1,n)))+EARLY_BONUS*Math.min(1,Math.max(0,(9-n)/8)); // 가값
 function fireVolley(c,n,gr){ // 일제사격 1회: gr.s갈래 부채꼴, 인원은 발당 피해로 환산
-  const t=squadTarget(c);if(!t)return;
-  G.statV++;
   const sq=G.squad.position;
+  let t=squadTarget(c);
+  if(!t){if(SPECIAL_KINDS.has(c.kind))return;G.statN=(G.statN||0)+1;t={kind:'none',obj:{position:new THREE.Vector3(sq.x,0.8,sq.z-12)}};} // 대상이 없어도 일정 간격으로 전방 발사
+  G.statV++;
   const from=new THREE.Vector3(sq.x,1.0,sq.z-0.6);
   const tp=t.obj.position.clone();tp.y=0.8;
+  if(t.kind==='foe'){const dl=Math.hypot(tp.x-from.x,tp.z-from.z);tp.z+=(t.spd||t.cfg.spd)*dl/PSPD;} // 적 전진 선행조준
   const base=Math.atan2(tp.x-from.x,-(tp.z-from.z)); // 전방 0 기준 좌우 각
   const fan=(gr.fan||0)*Math.PI/180;
   const perDmg=c.dmg*G.dmgMul*gr.dmg*FORCE(n)/(c.kind==='wave'?1:gr.s); // 총 화력 = 병종 기본 x 병력 곡선 1회 적용(REF_S 이중 적용 제거) — 계수는 가값
@@ -610,14 +613,21 @@ function bossPhase(boss){
 
 // ---------- input ----------
 let dragging=false,lastPX=0;
+const KEYS=new Set();
+function dragScale(){return 9/Math.min(innerWidth,innerHeight*0.62);} // PC 가로 화면에서도 모바일과 같은 이동감(세로 화면 기준 폭)
 function onDown(x){dragging=true;lastPX=x;}
-function onMove(x){if(!dragging)return;const dx=(x-lastPX)/innerWidth*9;lastPX=x;
+function onMove(x){if(!dragging)return;const dx=(x-lastPX)*dragScale();lastPX=x;
   G.x=THREE.MathUtils.clamp(G.x+dx,-CFG.dragClamp,CFG.dragClamp);}
 function onUp(){dragging=false;}
 renderer.domElement.addEventListener('pointerdown',e=>onDown(e.clientX));
 addEventListener('pointermove',e=>onMove(e.clientX));
 addEventListener('pointerup',onUp);
 addEventListener('pointercancel',onUp);
+const KMAP={ArrowLeft:'L',KeyA:'L',ArrowRight:'R',KeyD:'R'};
+addEventListener('keydown',e=>{const k=KMAP[e.code];if(!k)return;KEYS.add(k);e.preventDefault();});
+addEventListener('keyup',e=>{const k=KMAP[e.code];if(k)KEYS.delete(k);});
+addEventListener('blur',()=>KEYS.clear());
+function keyMove(dt){const d=(KEYS.has('R')?1:0)-(KEYS.has('L')?1:0);if(d)G.x=THREE.MathUtils.clamp(G.x+d*5.5*dt,-CFG.dragClamp,CFG.dragClamp);}
 
 // ---------- flow ----------
 const $=id=>document.getElementById(id);
@@ -738,6 +748,7 @@ function update(dt){
   G.gtime=(G.gtime||0)+dt; // 계측용 게임 시간(TS 적용 후)
   // advance (통로 진행은 보스전에도 멈추지 않음)
   G.squad.position.z-=CFG.fwdSpeed*dt;
+  keyMove(dt);
   G.squad.position.x+=(G.x-G.squad.position.x)*Math.min(1,dt*10);
   const sq=G.squad.position;
   { // 가이드: 사선대 경계 2줄 — corridorW(실제 조준·충돌 판정 함수)를 그대로 샘플링해 그림: 보이는 모양 = 실제 타격 범위(성장·고정 총 폭 상자 반영)
@@ -775,7 +786,7 @@ function update(dt){
   const c=CLASSES[G.cls],n=G.allies.length,gr=growth(G.cls,n);
   if(G.burstLeft>0){G.burstT-=dt;if(G.burstT<=0){fireVolley(c,n,gr);G.burstLeft--;G.burstT=0.09;}}
   else{G.vcd-=dt;
-    if(G.vcd<=0&&squadTarget(c)){fireVolley(c,n,gr);if(gr.burst>1){G.burstLeft=gr.burst-1;G.burstT=0.09;}
+    if(G.vcd<=0&&(squadTarget(c)||!SPECIAL_KINDS.has(c.kind))){fireVolley(c,n,gr);if(gr.burst>1){G.burstLeft=gr.burst-1;G.burstT=0.09;}
       G.vcd=Math.max(0.08,c.cd*gr.rate);}}
   // 콤보 창
   if(G.comboT>0){G.comboT-=dt;
@@ -831,10 +842,10 @@ function update(dt){
       const seg=(o,rad)=>{const ox=o.obj.position.x-px0,oz=o.obj.position.z-pz0;
         const t=Math.max(0,Math.min(step,ox*ux+oz*uz));const dd=Math.hypot(ox-ux*t,oz-uz*t);
         if(dd<rad&&dd<bhd){bhd=dd;hit=o;}};
-      for(const e of G.enemies)if(e.hp>0&&e.deadT==null&&!p.hitSet.has(e))seg(e,p.waveRad||0.35);
+      for(const e of G.enemies)if(e.hp>0&&e.deadT==null&&!p.hitSet.has(e))seg(e,(p.waveRad||0.35)+(e.cfg&&e.cfg.rr?e.cfg.rr*0.45:0.2));
       if(!hit)for(const b of G.blocks)if(b.hp>0)seg(b,(p.waveRad||0.35)+0.1);
       if(hit){G.statH++;const hp2=hit.obj.position.clone();hp2.y=0.8;
-        if(G.fxT<=0){efkPlay(p.hitEfk||'hit',hp2,(p.owner.cfg.fxScale||0.4)*(fxTier()>=2?1.3:1),p.owner.cfg.fxSpeed||1.4);G.fxT=0.25;} // 2단계~ 명중 섬광 확대(가값)
+        if(G.fxT<=0){efkPlay(p.hitEfk||'hit',hp2,(p.owner.cfg.fxScale||0.4)*(fxTier()>=2?1.3:1),p.owner.cfg.fxSpeed||1.4);G.fxT=0.07;} // 2단계~ 명중 섬광 확대(가값)
         if(p.slow&&hit.kind==='foe'){hit.slowT=p.slow;efkPlay('toonwater',hp2,0.12,1.8);}
         if(p.knock>1&&hit.kind==='foe')hit.obj.position.z-=0.2*(p.knock-1); // 충격파 넉백(보임이 성장 체감)
         damage(hit,p.dmg);
