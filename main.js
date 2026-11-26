@@ -108,7 +108,7 @@ function fxTier(){const p=G.dmgMul*(growth(G.cls,G.allies.length).dmg||1);return
 // 병종별 고정 총 타격 폭/사거리(제안서): 폭에는 폭발 반경·파동 폭이 포함, 성장해도 이 상자를 넘지 않음
 const ENV={Knight:{w:1.2,r:14},Rogue:{w:1.8,r:12},Mage:{w:2.6,r:8},Barbarian:{w:3.6,r:5},Rogue_Hooded:{w:2.0,r:11},
   Ranger:{w:3.0,r:6},Glaive:{w:1.6,r:10},Sorcerer:{w:3.0,r:12,l:0.7},FrostLancer:{w:1.0,r:15},Pyro:{w:2.4,r:4},Prism:{w:0.8,r:16},Artillery:{w:2.8,r:13,l:0.4}}; // l=조준 레인 반폭 고정(없으면 w/2−폭발/파동). 연쇄·폭발은 이 레인 밖으로 조준선±1.5/반경 1.0까지만
-for(const k in ENV)CLASSES[k].range=ENV[k].r;
+for(const k in ENV)if(CLASSES[k])CLASSES[k].range=ENV[k].r;
 function growth(cls,n){const g={...GROWTH_DEF};for(const [k,v] of (GROWTH[cls]||[]))if(n>=k)Object.assign(g,v);
   const e=ENV[cls];if(e){g.aoe=Math.min(g.aoe||0,e.w/2-0.4);g.wave=Math.min(g.wave||0,e.r);g.waveW=Math.min(g.waveW,(e.w/2-0.35)/0.55);}
   return g;}
@@ -125,6 +125,7 @@ CLASSES.Pyro=_B('Mage',{kind:'flame',dmg:3,cd:0.3,range:4,color:0xff8a2a,hitEfk:
 CLASSES.Prism=_B('Rogue_Hooded',{kind:'beam',dmg:2.2,cd:0.25,range:16,color:0xe6c8ff,hitEfk:'hit',fxScale:0.1,fxSpeed:2.6,homing:false});
 CLASSES.Artillery=_B('Barbarian',{kind:'lob',dmg:9,cd:1.8,range:13,color:0xffd27a,hitEfk:'hit',fxScale:0.14,fxSpeed:2.4,anim:'2H_Melee_Attack_Chop'});
 for(const k of ['Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism','Artillery'])GROWTH[k]=[[8,{dmg:1.2}],[12,{dmg:1.4}],[16,{dmg:1.6}]];
+for(const k in ENV)if(CLASSES[k]&&CLASSES[k].range!==ENV[k].r&&['Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism','Artillery'].includes(k))CLASSES[k].range=ENV[k].r;
 const SPECIAL_KINDS=new Set(['boomerang','chain','lance','flame','beam','lob']);
 
 const CLS_KO2={Ranger:'레인저',Glaive:'글레이브',Sorcerer:'소서러',FrostLancer:'프로스트 랜서',Pyro:'파이로',Prism:'프리즘 사수',Artillery:'포격수'};
@@ -425,7 +426,7 @@ function fireSpecial(c,gr,t,from,tp,dmg,n){
     const p={mesh:grp,target:null,owner:{cfg:c,fxT:0},dmg,speed:spd,kind:k,color:c.color,hitEfk:c.hitEfk,fx0:from.x,fz0:from.z,vel,maxDist:k==='boomerang'?c.range:c.range+1,traveled:0,pierce:99,hitSet:new Set(),aoe:0,knock:1,
       waveRad:k==='boomerang'?0.8:0.5,boom:k==='boomerang',slow:k==='lance'?1.6:0};
     if(k==='lance')p.k=0.2;
-    {const trId=k==='lance'?'cold':'suzsword';p.efkH=efkPlay(trId,from,k==='lance'?0.13:0.16,2.0);if(p.efkH&&k==='lance'){try{p.efkH.setRotation(0,Math.atan2(vel.x,vel.z)+Math.PI/2,0);}catch(e){p.efkH=null;}}}
+    {const trId=k==='lance'?'cold':'suzsword';p.efkH=efkPlay(trId,from,k==='lance'?0.12:0.13,2.0);if(p.efkH&&k==='lance'){try{p.efkH.setRotation(0,Math.atan2(vel.x,vel.z)+Math.PI/2,0);}catch(e){p.efkH=null;}}}
     G.projs.push(p);G.statB++;return;}
   if(k==='chain'){
     const pts=[from.clone()];const first=t;const hit=[first];
@@ -442,17 +443,17 @@ function fireSpecial(c,gr,t,from,tp,dmg,n){
     for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)]){const p=o.obj.position;const dz=from.z-p.z;if(dz<=0||dz>len)continue;if(Math.abs(p.x-aimX(p.z))>1.2)continue;damage(o,dmg);}
     for(let i=1;i<=3;i++){const q=new THREE.Vector3(aimX(from.z-i*1.2),0.6,from.z-i*1.2);efkPlay('fireball',q,0.12+0.03*i,2.2);}efkPlay('flame',new THREE.Vector3(aimX(from.z-2.4),0.4,from.z-2.4),0.12,2.0);return;}
   if(k==='beam'){
-    const len=c.range;for(let i=0;i<5;i++){const zz=from.z-1.5-i*3.2;efkPlay('aura',new THREE.Vector3(aimX(zz),0.9,zz),0.08,2.4);}efkPlay('bene',new THREE.Vector3(from.x,1.0,from.z-0.8),0.07,2.6);
+    const len=c.range;for(let i=0;i<5;i++){const zz=from.z-1.5-i*3.2;efkPlay('aura',new THREE.Vector3(aimX(zz),0.9,zz),0.12,2.4);}
     for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)]){const p=o.obj.position;const dz=from.z-p.z;if(dz<=0||dz>len)continue;if(Math.abs(p.x-aimX(p.z))>0.4)continue;damage(o,dmg);if(o.kind==='foe'&&!(G.sparkT>0)){efkPlay('thunder',new THREE.Vector3(p.x,0,p.z),0.1,2.2);G.sparkT=0.12;}}return;}
   if(k==='lob'){
     const lead=t.kind==='foe'?(t.spd||t.cfg.spd||1)*0.75:0;
     const to=new THREE.Vector3(tp.x,0.1,tp.z+lead);
     const ball=new THREE.Mesh(new THREE.SphereGeometry(0.22,10,10),new THREE.MeshBasicMaterial({color:c.color}));ball.position.copy(from);scene.add(ball);
     const mk=ring(0xffd27a,1.0,0.35);mk.position.set(to.x,0.1,to.z);scene.add(mk);
-    const dur=0.75;let el=0;G.q=G.q||[];const th=efkPlay('fireball',from,0.14,1.6);
+    const dur=0.75;let el=0;G.q=G.q||[];const th=efkPlay('fireball',from,0.1,1.6);
     G.q.push({t:dur,step:(dt)=>{el+=dt;const u=Math.min(1,el/dur);ball.position.set(from.x+(to.x-from.x)*u,1.0+(to.y-1.0)*u+3.2*Math.sin(Math.PI*u),from.z+(to.z-from.z)*u);if(th){try{th.setLocation(ball.position.x,ball.position.y,ball.position.z);}catch(e){}}},
       fn:()=>{scene.remove(ball);scene.remove(mk);const rm=ring(0xff9a4a,1.0,0.6);rm.position.set(to.x,0.12,to.z);addFx(rm,0.35);
-        if(th){try{th.stop();}catch(e){}}efkPlay('meteo',new THREE.Vector3(to.x,0,to.z),0.22,2.0);
+        if(th){try{th.stop();}catch(e){}}efkPlay('meteo',new THREE.Vector3(to.x,0,to.z),0.3,2.0);
         for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)])if(Math.hypot(o.obj.position.x-to.x,o.obj.position.z-to.z)<=1.0)damage(o,dmg);}});return;}
 }
 let BIGI=0;
