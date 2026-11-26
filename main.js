@@ -97,9 +97,9 @@ const GROWTH_DEF={s:1,burst:1,fan:0,pierce:3,rate:1,dmg:1,big:0,aoe:0,wave:0,wav
 const GROWTH={ // 탄수 초반 가속(사용자 07:44 "5명까지 탄 수"·매 1명 즉시 체감) — 총화력은 REF_S로 기존 곡선에 정규화
  Knight:[[4,{s:3}],[5,{s:4,burst:2}],[6,{s:5,fan:6}],[7,{s:6,pierce:4}],[8,{fan:9}],[9,{s:7}],[10,{big:1,dmg:1.3}],[11,{s:8}],[12,{pierce:6}],[13,{burst:3}],[14,{pierce:8}],[15,{pierce:99,dmg:1.6}],[16,{burst:4}]], // 탄수 우선(가값)
  Rogue:[[4,{burst:2,s:2}],[5,{rate:0.8}],[6,{s:3}],[7,{burst:3}],[8,{rate:0.68}],[9,{s:4,fan:8}],[10,{burst:4,rate:0.62,dmg:1.2}],[11,{rate:0.50}],[12,{pierce:5,s:5}],[13,{burst:5}],[14,{fan:10}],[15,{rate:0.4,dmg:1.3,s:6}],[16,{fan:12}]], // 연사 우선(가값)
- Mage:[[4,{s:2,aoe:0.5}],[5,{aoe:0.7}],[6,{fan:10}],[7,{s:3,aoe:0.9}],[8,{aoe:1.0}],[9,{aoe:1.1}],[10,{pierce:2,dmg:1.3}],[11,{fan:14}],[12,{s:4,aoe:1.3}],[13,{aoe:1.4}],[14,{s:5,fan:16}],[15,{aoe:1.5,dmg:1.4}],[16,{s:6,fan:18}]], // 폭발 우선(가값)
- Barbarian:[[4,{wave:5}],[5,{waveW:1.3,s:2,fan:12}],[6,{wave:6.5}],[7,{knock:2}],[8,{waveW:1.6,s:3,fan:16}],[9,{wave:8,dmg:1.1}],[10,{burst:2,dmg:1.3}],[11,{waveW:1.9,dmg:1.2,s:4,fan:20}],[12,{wave:10,dmg:1.28}],[13,{knock:3}],[14,{waveW:2.4,s:5,fan:24}],[15,{wave:12,dmg:1.4}],[16,{burst:3}]], // 파동 우선(가값)
- Rogue_Hooded:[[4,{s:2}],[5,{burst:2}],[6,{s:3,rate:0.92}],[7,{fan:8}],[8,{rate:0.85}],[9,{s:4,dmg:1.15}],[10,{aux:1}],[11,{fan:10}],[12,{s:5,aux:2}],[13,{rate:0.72}],[14,{dmg:1.1}],[15,{rate:0.62,s:6}],[16,{aux:3}]], // 혼합(가값)
+ Mage:[[4,{s:2,aoe:0.5}],[5,{aoe:0.7}],[6,{fan:10}],[7,{s:3,aoe:0.9}],[8,{aoe:1.0}],[9,{aoe:1.2,fan:12}],[10,{pierce:2,dmg:1.3}],[11,{fan:14}],[12,{s:4,aoe:1.3}],[13,{aoe:1.4}],[14,{s:5,fan:16}],[15,{aoe:1.5,dmg:1.4}],[16,{s:6,fan:18}]], // 폭발 우선(가값)
+ Barbarian:[[4,{wave:5}],[5,{waveW:1.3,s:2,fan:12}],[6,{wave:6.5}],[7,{knock:2}],[8,{waveW:1.6,s:3,fan:16}],[9,{wave:8,dmg:1.1}],[10,{burst:2,dmg:1.3}],[11,{waveW:1.9,dmg:1.2,s:4,fan:20}],[12,{wave:10,dmg:1.28}],[13,{s:5,knock:3}],[14,{waveW:2.4,s:5,fan:24}],[15,{wave:12,dmg:1.4}],[16,{burst:3}]], // 파동 우선(가값)
+ Rogue_Hooded:[[4,{s:2}],[5,{burst:2}],[6,{s:3,rate:0.92}],[7,{fan:8}],[8,{rate:0.85}],[9,{s:4,dmg:1.15}],[10,{aux:1}],[11,{fan:10}],[12,{s:5,aux:2}],[13,{rate:0.72}],[14,{dmg:1.2,burst:3}],[15,{rate:0.62,s:6}],[16,{aux:3}]], // 혼합(가값)
 };
 const REF_S={Knight:[0,1,1,1,2,2,3,3,3,4,4,5,5,5,6,6,7],Rogue:[0,1,1,1,1,1,2,2,2,3,3,3,3,3,4,4,5],Mage:[0,1,1,1,1,1,2,2,2,2,2,3,3,3,4,4,5],Barbarian:[0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],Rogue_Hooded:[0,1,1,1,2,2,2,3,3,3,3,4,4,4,5,5,5]}; // 정규화 기준: 이전 탄수 곡선(총화력 유지용)
 function fxTier(){const p=G.dmgMul*(growth(G.cls,G.allies.length).dmg||1);return p>=3?3:p>=1.6?2:1;} // 성장형 타격FX 단계(가값 임계치 — 단계 비교 검증 후 조정)
@@ -336,10 +336,12 @@ function fireVolley(c,n,gr){ // 일제사격 1회: gr.s갈래 부채꼴, 인원�
   const tp=t.obj.position.clone();tp.y=0.8;
   const base=Math.atan2(tp.x-from.x,-(tp.z-from.z)); // 전방 0 기준 좌우 각
   const fan=(gr.fan||0)*Math.PI/180;
-  const perDmg=c.dmg*G.dmgMul*gr.dmg*(0.7+0.3*n)*((REF_S[G.cls][Math.max(1,Math.min(16,n))]||1)/gr.s); // 인원 → 발당 피해 환산, 탄수 증가분은 기존 곡선(REF_S)으로 정규화해 총화력 유지(초안 계수)
+  const perDmg=c.dmg*G.dmgMul*gr.dmg*(0.7+0.3*n)*(c.kind==='wave'?(REF_S[G.cls][Math.max(1,Math.min(16,n))]||1):((REF_S[G.cls][Math.max(1,Math.min(16,n))]||1)/gr.s)); // wave는 분할 감쇠 제외: 단일표적 회귀 방지(야만 중반 움푹 수정), 다갈래는 성장 체감으로 // 인원 → 발당 피해 환산, 탄수 증가분은 기존 곡선(REF_S)으로 정규화해 총화력 유지(초안 계수)
   const dzT=Math.max(0.5,from.z-tp.z),angMax=Math.atan2(corridorW(dzT),dzT); // 탄 궤적이 사선대를 벗어나지 않게 발사각 제한
   for(let i=0;i<gr.s;i++){
-    const off=gr.s>1?(i/(gr.s-1)-0.5)*fan:0;
+    let off=gr.s>1?(i/(gr.s-1)-0.5)*fan:0;
+    if(gr.s%2===0&&i===(gr.s>>1)-1)off=0; // 짝수 갈래: 한 발은 정확히 조준각 — 원거리 정조준 스트래들(전탄 빗나감) 방지
+
     let ang=base+off;if(ang>angMax)ang=angMax;if(ang<-angMax)ang=-angMax;
     spawnVolleyBolt(c,gr,from,ang,perDmg,n);
   }
@@ -450,7 +452,7 @@ function killUnit(t){
     if(TITLES[G.combo]){const l=labelSprite(TITLES[G.combo]+' ×'+G.combo,'#ffd966',3.6);l.position.set(G.squad.position.x,3.6,G.squad.position.z-6);addFx(l,1.6);}
     const dp=t.obj.position.clone();dp.y=0.9;
     if(t.isBoss)efkPlay('featherbomb',dp,0.40,1.8);
-    else{const tier=fxTier();if((G.sparkT||0)<=0){const sp=sparkBurst((CLASSES[G.cls]||{}).color||0xffe9a8,tier>=2?1.35:1.15);sp.position.copy(dp);const fe=addFx(sp,0.24,false);fe.grow=1;fe.spark=sp.userData.mat;G.sparkT=0.12;}if(tier>=3&&(G.fx3T||0)<=0){efkPlay('featherbomb',dp,0.12,2.0);G.fx3T=0.15;}} // 다중 동시 처치 피크 제한 + 성장 티어(강타 소형 폭발은 비화염)
+    else{const tier=fxTier();if((G.sparkT||0)<=0){const sp=sparkBurst((CLASSES[G.cls]||{}).color||0xffe9a8,tier>=2?1.35:1.15);sp.position.copy(dp);const fe=addFx(sp,0.24,false);fe.grow=1;fe.spark=sp.userData.mat;G.sparkT=0.12;}if(tier>=3&&(G.fx3T||0)<=0){efkPlay('toonhit',dp,0.5,2.0);G.fx3T=0.15;}} // 다중 동시 처치 피크 제한 + 성장 티어(강타 소형 폭발은 비화염), T3 폭발 교체(featherbomb→toonhit 0.5): 가림 없이 타격지점 식별(동일조건 실속 영상 비교)
     if(G.kills%CFG.killsPerLevel===0){G.level++;G.dmgMul*=CFG.levelMul;
       {const rp=ring(0xffd966,1.2,0.8);rp.position.set(G.squad.position.x,0.12,G.squad.position.z);addFx(rp,0.6);} // 밝은 중심면 없는 얇은 고리 표시(비교빌드)
       const l=labelSprite('레벨 업!','#ffe27a',2.4);l.position.set(G.squad.position.x,2.6,G.squad.position.z-1);addFx(l,1.6);}
