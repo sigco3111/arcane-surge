@@ -693,7 +693,7 @@ function tick(now){
   cam.position.set(G.squad?G.squad.position.x*0.4:0,17,(G.squad?G.squad.position.z:0)+13.5);
   cam.lookAt(G.squad?G.squad.position.x*0.3:0,0,(G.squad?G.squad.position.z:0)-6);
   if(G.defLineMesh)G.defLineMesh.position.set(0,0.035,(G.squad?G.squad.position.z:0)+CFG.defLine);
-  if(!NODRAW){renderer.render(scene,cam);
+  if(!NODRAW&&!window.__skipDraw){renderer.render(scene,cam);
   if(efk&&!NOFX){ // Effekseer 효과를 three 위에 같은 카메라로 그림
     efk.ctx.update(dt*60);
     const gl=renderer.getContext();
@@ -845,3 +845,4 @@ function update(dt){
 }
 init().catch(e=>{console.error(e);window.__err=String(e.stack||e);});
 window.__spawn=async(type,x,dz)=>{await spawnFoe(type,x,G.squad.position.z-dz,false,null);return 1;}; // 테스트 훅
+window.__step=(n,dt)=>{window.__fn=(window.__fn||performance.now());for(let i=0;i<n;i++){window.__skipDraw=i<n-1;window.__fn+=dt*1000;tick(window.__fn);}return 1;}; // 검증 훅: 수동 프레임 진행(실제 렌더는 마지막 프레임만)
