@@ -111,12 +111,15 @@ const ENV={Knight:{w:1.2,r:14},Rogue:{w:1.8,r:12},Mage:{w:2.6,r:8},Barbarian:{w:
 for(const k in ENV)if(CLASSES[k])CLASSES[k].range=ENV[k].r;
 function growth(cls,n){const g={...GROWTH_DEF};for(const [k,v] of (GROWTH[cls]||[]))if(n>=k)Object.assign(g,v);
   const e=ENV[cls];if(e){g.aoe=Math.min(g.aoe||0,Math.max(0,e.w/2-0.7));g.wave=Math.min(g.wave||0,e.r);g.waveW=Math.min(g.waveW,(e.w/2-0.35)/0.55);}
+  g.fan=0; // 가로 나란히 발사로 전환: 각도 부채꼴 없음(Ranger 산탄은 별도 고정)
   return g;}
 const HITR={Knight:0.35,Rogue:0.35,Mage:0.35,Rogue_Hooded:0.35,Ranger:0.35,Glaive:0.5,FrostLancer:0.4,Barbarian:0}; // 탄 명중 반경(없으면 즉시 판정 0)
 const XTRA={Sorcerer:0.8,Artillery:1.0}; // 연쇄 추가 반경(조준선 0.7→1.5) / 포격 폭발 반경
 function hitR(cls,gr){return cls==='Barbarian'?0.55*(gr.waveW||1):(HITR[cls]||0);}
-function envHalf(cls,gr){const e=ENV[cls];if(!e)return 9;if(e.l)return e.l;return Math.max(0.15,e.w/2-hitR(cls,gr)-(gr.aoe||0));} // 조준 레인 반폭
-function reachHalf(cls,gr,dz){const e=ENV[cls];const lane=Math.min(0.6+Math.max(0,dz)*(0.08+Math.tan((gr.fan||0)*Math.PI/360)),envHalf(cls,gr));let r=lane+hitR(cls,gr)+(gr.aoe||0)+(XTRA[cls]||0);if(cls==='Ranger')r=Math.max(r,Math.tan(10.5*Math.PI/180)*Math.min(Math.max(0,dz),6)+0.35);return r;} // 실제 타격이 닿는 최대 반폭(레인+탄 반경+폭발/연쇄)
+function latHalf(cls,gr){const e=ENV[cls];if(!e||e.l)return 0;const room=Math.max(0,e.w/2-hitR(cls,gr)-(gr.aoe||0));return Math.min(Math.max(0,((gr.s||1)-1))*LAT_STEP/2,room*0.6);} // 가로 나란히 발사 편대의 반폭(총 폭 상자 안)
+const LAT_STEP=0.5;
+function envHalf(cls,gr){const e=ENV[cls];if(!e)return 9;if(e.l)return e.l;return Math.max(0.15,e.w/2-hitR(cls,gr)-(gr.aoe||0)-latHalf(cls,gr));} // 조준 레인 반폭
+function reachHalf(cls,gr,dz){const e=ENV[cls];const lane=Math.min(0.6+Math.max(0,dz)*(0.08+Math.tan((gr.fan||0)*Math.PI/360)),envHalf(cls,gr));let r=lane+latHalf(cls,gr)+hitR(cls,gr)+(gr.aoe||0)+(XTRA[cls]||0);if(cls==='Ranger')r=Math.max(r,Math.tan(10.5*Math.PI/180)*Math.min(Math.max(0,dz),6)+0.35);return r;} // 실제 타격이 닿는 최대 반폭(레인+탄 반경+폭발/연쇄)
 window.__reach=(cls,n,dz)=>{const gr=growth(cls,n);return reachHalf(cls,gr,dz);};
 const CAPTIVE_CYCLE=['Mage','Rogue','Barbarian','Rogue_Hooded','Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism','Artillery']; // 구출 감옥 순환(현재 병종 제외는 스폰 시 결정)
 const EXTRA_CYCLE=['Rogue_Hooded','Mage','Knight','Barbarian','Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism','Artillery'];
@@ -371,12 +374,11 @@ function fireVolley(c,n,gr){ // 일제사격 1회: gr.s갈래 부채꼴, 인원�
   if(SPECIAL_KINDS.has(c.kind)){fireSpecial(c,gr,t,from,tp,perDmg,n);for(const u of G.allies)playOnce(u,c.anim,'Walking_A');return;}
   if(c.kind==='spread'){const half=10.5*Math.PI/180;G.statV+=0;for(let i=0;i<7;i++){const ang=0+(i/6-0.5)*2*half;spawnVolleyBolt(c,{...gr,s:7},from,ang,perDmg*0.45,n,true);}efkPlay('hit',from,0.15,2.2);for(const u of G.allies)playOnce(u,c.anim,'Walking_A');return;}
   const dzT=Math.max(0.5,from.z-tp.z),angMax=Math.atan2(corridorW(dzT),dzT); // 탄 궤적이 사선대를 벗어나지 않게 발사각 제한
-  for(let i=0;i<gr.s;i++){
-    let off=gr.s>1?(i/(gr.s-1)-0.5)*fan:0;
-    if(gr.s%2===0&&i===(gr.s>>1)-1)off=0; // 짝수 갈래: 한 발은 정확히 조준각 — 원거리 정조준 스트래들(전탄 빗나감) 방지
-
-    let ang=base+off;if(ang>angMax)ang=angMax;if(ang<-angMax)ang=-angMax;
-    spawnVolleyBolt(c,gr,from,ang,perDmg,n);
+  const lat=latHalf(G.cls,gr),stp=gr.s>1?2*lat/(gr.s-1):0;
+  let ang=base;if(ang>angMax)ang=angMax;if(ang<-angMax)ang=-angMax;
+  for(let i=0;i<gr.s;i++){ // 가로로 나란히(평행) 발사 — 병력/탄 수가 늘면 옆으로 늘어남, 총 폭은 병종 상자 안
+    const f=from.clone();f.x+=gr.s>1?(i*stp-lat):0;
+    spawnVolleyBolt(c,gr,f,ang,perDmg,n);
   }
   if(gr.aux>0)for(let i=0;i<gr.aux;i++)spawnAuxBolt(c,from,perDmg*0.6);
   efkPlay('hit',from,0.15,2.2); // 발사구 섬광: 잔여 없는 짧은 플래시로 통일(ember류 잔여 화염 방지)
@@ -740,7 +742,9 @@ function update(dt){
         const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.12,depthWrite:false,side:THREE.DoubleSide}));m.frustumCulled=false;scene.add(m);return m;};
       G.guideStrips=[mk(),mk()];G.reachStrips=[mk(),mk()];for(const m of G.reachStrips)m.material.color.set(0xffb060);}
     const len=CLASSES[G.cls].range;
-    [-1,1].forEach((sgn,si)=>{const pos=G.guideStrips[si].geometry.attributes.position;
+    if(G.guideStrips){for(const m of G.guideStrips.concat(G.reachStrips))m.visible=false;}
+    else{}
+    if(false)[-1,1].forEach((sgn,si)=>{const pos=G.guideStrips[si].geometry.attributes.position;
       for(let i=0;i<=N;i++){const dz=len*i/N;const hw=corridorW(dz);const z=sq.z-0.6-dz;
         pos.setXYZ(i*2,sq.x+sgn*hw,0.06,z);pos.setXYZ(i*2+1,sq.x+sgn*(hw+0.07),0.06,z);}
       pos.needsUpdate=true;
