@@ -87,7 +87,7 @@ function sparkBurst(color,s=1){ // 링 없는 명중 스파크: 방사형 짧은
 
 // ---------- config (수치 전부 초안) ----------
 const CFG={
-  fwdSpeed:2.3, dragClamp:2.1, defLine:2.6, // 전진 1.7->2.3(+35%) (사용자 11-27: 전진이 답답·난이도 좀 쉬움 — 속도 상향으로 진행 압박도 함께 상승. 2.6 시험 결과 1스테이지 첫 파도 돌파 여유 7.1s->4.5s로 과하게 급변해 2.3으로 조정)
+  fwdSpeed:2.7, foeSpdMul:1.2, dragClamp:2.1, defLine:2.6, // 전진 2.3->2.7 + 적 속도 1.2배 (사용자 11-27: 아군·적군 모두 더 빠르게). 이전: 1.7->2.3(+35%), 2.6 시험에서 1스테이지 첫 파도 돌파 여유 7.1s->4.5s로 급변해 2.3 조정 후 재상향
   lives:5, killsPerLevel:8, levelMul:1.15,
   stageLen:55,
   bossEvery:5, // 5스테이지마다 보스 / 지역(맵 테마)은 보스 이후 바뀜
@@ -120,6 +120,7 @@ function fxTier(){const p=G.dmgMul*(growth(G.cls,G.allies.length).dmg||1);return
 const ENV={Knight:{w:1.2,r:22},Rogue:{w:1.8,r:20},Mage:{w:3.2,r:20},Barbarian:{w:3.6,r:18},Rogue_Hooded:{w:2.0,r:60},
   Ranger:{w:3.0,r:16,l:0.6},Glaive:{w:1.6,r:18,l:0.3},Sorcerer:{w:3.0,r:20,l:0.7},FrostLancer:{w:1.0,r:24,l:0.1},Pyro:{w:2.4,r:16,l:1.2},Prism:{w:0.8,r:40,l:0.4}}; // 병종 개편(사용자 승인 11-27 09:59): 전원 충분한 사거리(16+), 차별화는 공격 방식으로. l=조준 레인 반폭 고정(없으면 w/2−폭발/파동). 연쇄·폭발은 이 레인 밖으로 조준선±1.5/반경 1.0까지만
 for(const k in ENV)if(CLASSES[k])CLASSES[k].range=ENV[k].r;
+const RANGE_DMG=r=>Math.max(0.15,Math.pow(16/Math.max(16,r),2)); // 사용자 11-27: 사거리가 길수록 데미지를 훨씬 낮춤(16 기준 제곱 감쇠, 하한 0.15) — 가값, 플레이테스트 조정 예정
 function growth(cls,n){const g={...GROWTH_DEF};for(const [k,v] of (GROWTH[cls]||[]))if(n>=k)Object.assign(g,v);
   const e=ENV[cls];if(e){g.aoe=Math.min(g.aoe||0,Math.max(0,e.w/2-0.7));g.wave=Math.max(g.wave||0,e.r);g.waveW=Math.min(g.waveW,(e.w/2-0.35)/0.55);} // 개편: 파동 도달 거리도 사거리까지(이전엔 성장치 5~12에 묶여 교전 사거리가 사실상 그대로였음)
   {const k=(CLASSES[cls]||{}).kind;if(k!=='wave'&&k!=='spread'&&!(typeof SPECIAL_KINDS!=='undefined'&&SPECIAL_KINDS.has(k)))g.s=Math.max(g.s,Math.min(n,9));} // 보이는 대원 수 = 발사 줄 수(최대 9), 발당 피해는 줄 수로 나뉘어 총 화력 불변
@@ -342,7 +343,7 @@ async function spawnFoe(type,x,z,isBoss=false,wave){
   const sscale=(isBoss?1:Math.min(1.5,1+0.07*(stg0-1))*(stg0===1?0.85:1))*(isBoss?1:rf.spd)*cycleSpd(); // 원작 참고: 단계가 갈수록 적 이동 가속
   const {root,anims}=await makeModel(A+f.u,f.s,isBoss?(bdef.tint||null):[1.05,0.8,0.8]);
   root.position.set(x,0,z);root.rotation.y=0;
-  const unit={kind:'foe',type,isBoss,bossIdx,bossName:bdef?bdef.name:null,hp:Math.round(f.hp*hscale),maxHp:Math.round(f.hp*hscale),cfg:f,spd:f.spd*sscale,obj:root,hitT:0,...makeMixer(root,anims)};
+  const unit={kind:'foe',type,isBoss,bossIdx,bossName:bdef?bdef.name:null,hp:Math.round(f.hp*hscale),maxHp:Math.round(f.hp*hscale),cfg:f,spd:f.spd*sscale*(CFG.foeSpdMul||1),obj:root,hitT:0,...makeMixer(root,anims)};
   const walk=unit.acts.Walking_A||unit.acts.Walk||unit.acts.Flying;if(walk){walk.play();walk.time=Math.random();}
   const rr=ring(0xff2233,f.rr);rr.position.y=0.035;root.add(rr);
   const fd=new THREE.Mesh(new THREE.CircleGeometry(f.rr*1.15,28),new THREE.MeshBasicMaterial({color:0xff2233,transparent:true,opacity:0.2,depthWrite:false}));
@@ -397,9 +398,9 @@ function stageLayout(n){
   const L=[];const z0=-CFG.stageLen*(n-1);
   if(!isBossStage(n)){
     const foeTypes=regionFoes(n).mix; // 지역별 적 조합(11-27 확장)
-    [16,22,28,34,40,46,52,58].forEach((dz,w)=>{ // 배치 압축(11-27: 빈 이동 구간 제거) — 첫 파도 16부터 6 간격, 마지막 파도는 다음 구간 초반까지 이어짐
-      const cnt=n===1?2+(w%2):Math.min(8,3+n); // 1스테이지는 파도당 2~3마리, 2스테이지부터 늘어남(상한 8)
-      const cx=[-1.4,1.6,-0.6,1.2,-1.8,0.9,-1.2,1.7][w%8]; // 원작처럼 파도가 통로 이곳저곳에 뭉쳐 나옴 — 가만히 서 있으면 맞지 않는 파도가 생김
+    [12,17,22,27,32,37,42,47,52,57].forEach((dz,w)=>{ // 파도 8->10개·5 간격(사용자 11-27: 적이 드문드문 — 더 자주 더 많이) — 첫 파도 12부터, 마지막 파도는 다음 구간 초반까지 이어짐
+      const cnt=n===1?2+(w%2):Math.min(12,4+n); // 1스테이지는 파도당 2~3마리, 2스테이지부터 늘어남(상한 8->12)
+      const cx=[-1.4,1.6,-0.6,1.2,-1.8,0.9,-1.2,1.7,0.2,-0.9][w%10]; // 원작처럼 파도가 통로 이곳저곳에 뭉쳐 나옴 — 가만히 서 있으면 맞지 않는 파도가 생김
       for(let i=0;i<cnt;i++){
         const t=foeTypes[(w+i+n)%foeTypes.length];
         L.push({dz:dz+ (i%2)*1.6, type:'foe',foe:t,x:cx+((i*47)%10)/10*1.4-0.7,wave:w});
@@ -475,7 +476,7 @@ function fireVolley(c,n,gr){ // 일제사격 1회: gr.s갈래 부채꼴, 인원�
   if(t.kind==='foe'){const dl=Math.hypot(tp.x-from.x,tp.z-from.z);tp.z+=(t.spd||t.cfg.spd)*dl/PSPD;} // 적 전진 선행조준
   const base=Math.atan2(tp.x-from.x,-(tp.z-from.z)); // 전방 0 기준 좌우 각
   const fan=(gr.fan||0)*Math.PI/180;
-  const perDmg=c.dmg*G.dmgMul*gr.dmg*FORCE(n)/(c.kind==='wave'?1:gr.s); // 총 화력 = 병종 기본 x 병력 곡선 1회 적용(REF_S 이중 적용 제거) — 계수는 가값
+  const perDmg=c.dmg*G.dmgMul*gr.dmg*FORCE(n)*RANGE_DMG(c.range)/(c.kind==='wave'?1:gr.s); // 총 화력 = 병종 기본 x 병력 곡선 1회 적용(REF_S 이중 적용 제거) x 사거리 감쇠 — 계수는 가값
   if(SPECIAL_KINDS.has(c.kind)){fireSpecial(c,gr,t,from,tp,perDmg,n);for(const u of G.allies)playOnce(u,c.anim,'Walking_A');return;}
   if(c.kind==='spread'){const half=10.5*Math.PI/180;G.statV+=0;for(let i=0;i<7;i++){const ang=0+(i/6-0.5)*2*half;spawnVolleyBolt(c,{...gr,s:7},from,ang,perDmg*0.45,n,true);}efkPlay('hit',from,0.15,2.2);for(const u of G.allies)playOnce(u,c.anim,'Walking_A');return;}
   const dzT=Math.max(0.5,from.z-tp.z),angMax=Math.atan2(corridorW(dzT),dzT); // 탄 궤적이 사선대를 벗어나지 않게 발사각 제한
@@ -746,7 +747,8 @@ addEventListener('pointermove',e=>onMove(e.clientX));
 addEventListener('pointerup',onUp);
 addEventListener('pointercancel',onUp);
 const KMAP={ArrowLeft:'L',KeyA:'L',ArrowRight:'R',KeyD:'R'};
-addEventListener('keydown',e=>{const k=KMAP[e.code];if(!k)return;KEYS.add(k);e.preventDefault();});
+function togglePause(){if(G.state!=='play')return;G.paused=!G.paused;const o=document.getElementById('pauseOv');if(o)o.classList.toggle('hidden',!G.paused);} // 일시정지(사용자 11-27)
+addEventListener('keydown',e=>{if(e.code==='KeyP'||e.code==='Escape'){togglePause();e.preventDefault();return;}const k=KMAP[e.code];if(!k)return;KEYS.add(k);e.preventDefault();});
 addEventListener('keyup',e=>{const k=KMAP[e.code];if(k)KEYS.delete(k);});
 addEventListener('blur',()=>KEYS.clear());
 function keyMove(dt){const d=(KEYS.has('R')?1:0)-(KEYS.has('L')?1:0);if(d)G.x=THREE.MathUtils.clamp(G.x+d*5.5*dt,-CFG.dragClamp,CFG.dragClamp);}
@@ -792,6 +794,7 @@ async function init(){
   if(NG.cycle>1||NG.victories>0){const ti=$('titleInfo');if(ti)ti.textContent=NG.cycle+'회차 진행 중 · 클리어 '+NG.victories+'회 · 해금 병종 '+NG.unlocked.length+'/'+Object.keys(CLASSES).length;}
   sb.addEventListener('click',()=>{$('title').classList.add('hidden');G.state='play';});
   $('retryBtn').addEventListener('click',()=>location.reload());
+  $('pauseBtn').addEventListener('click',()=>togglePause());
   requestAnimationFrame(tick);
 }
 function fmtT(t){t=Math.round(t);return Math.floor(t/60)+':'+String(t%60).padStart(2,'0');}
@@ -920,7 +923,7 @@ function tick(now){
   requestAnimationFrame(tick);
   const dt=Math.min(0.25,(now-last)/1000);last=now;
   fpsEMA=fpsEMA*0.95+(1/Math.max(dt,1e-4))*0.05;
-  if(G.state==='play')update(dt);
+  if(G.state==='play'&&!G.paused)update(dt);
   // camera follows squad
   cam.position.set(G.squad?G.squad.position.x*0.4:0,17,(G.squad?G.squad.position.z:0)+13.5);
   cam.lookAt(G.squad?G.squad.position.x*0.3:0,0,(G.squad?G.squad.position.z:0)-11);
@@ -1081,6 +1084,7 @@ function update(dt){
   // HUD
   $('hearts').textContent='♥'.repeat(Math.max(0,G.lives))+'♡'.repeat(Math.max(0,CFG.lives-G.lives));
   $('squadN').textContent=G.allies.length;
+  $('clsName').textContent=CLS_KO[G.cls]||G.cls; // 현재 부대 병종 이름 상시 표시(사용자 11-27)
   if(G.combo<2)$('combo').classList.remove('on');
   $('lv').textContent=G.level;
   $('kills').textContent=G.kills;
