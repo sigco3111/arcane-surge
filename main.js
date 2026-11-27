@@ -95,7 +95,7 @@ const CFG={
 };
 const FINAL_BOSS_IDX=CFG.finalStage/CFG.bossEvery;
 function stageMul(n){return n<=1?1:0.9*Math.pow(1.3,Math.min(n,12)-2)*Math.pow(1.15,Math.max(0,n-12));}
-function foeHpMul(n){return 0.9*Math.pow(1.15,n-2);} // 일반 적 체력 곡선(3스테이지~): 구간 성장 30%→15%로 완만화 (사용자 11-27 18:46 '3~12 스테이지까지 매 구간 15%로'). 13+도 기존과 같은 15%/구간이라 경계 연속. 화력 상한 effMul·보스 기준 화력 refDps는 기존 stageMul 곡선 유지(다른 수치 무변경 지시) // 11-27 12:36: 구 곡선×0.6 — 너프된 원거리 병종의 처치 타격 수가 전보다 늘어나는 선까지만 하향(상쇄 방지) // 적 체력 배율: 1스테이지=1, 2스테이지부터 1.5배로 뛰고 이후 1.3배씩(12 이후 1.15배씩)
+function foeHpMul(n){return 0.9*Math.pow(1.10,n-2);} // 일반 적 체력 곡선(3스테이지~): 구간 성장 30%→15%로 완만화 (사용자 11-27 18:46 '3~12 스테이지까지 매 구간 15%로'). 13+도 기존과 같은 15%/구간이라 경계 연속. 화력 상한 effMul·보스 기준 화력 refDps는 기존 stageMul 곡선 유지(다른 수치 무변경 지시) // 11-27 12:36: 구 곡선×0.6 — 너프된 원거리 병종의 처치 타격 수가 전보다 늘어나는 선까지만 하향(상쇄 방지) // 적 체력 배율: 1스테이지=1, 2스테이지부터 1.5배로 뛰고 이후 1.3배씩(12 이후 1.15배씩)
 function blockMul(n){return Math.pow(1.3,Math.min(n,12)-1)*Math.pow(1.15,Math.max(0,n-12));}
 const isBossStage=n=>n>0&&n%CFG.bossEvery===0;
 const CLASSES={
