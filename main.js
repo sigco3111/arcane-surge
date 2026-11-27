@@ -87,7 +87,7 @@ function sparkBurst(color,s=1){ // 링 없는 명중 스파크: 방사형 짧은
 
 // ---------- config (수치 전부 초안) ----------
 const CFG={
-  fwdSpeed:2.7, foeSpdMul:1.2, dragClamp:2.1, defLine:2.6, // 전진 2.3->2.7 + 적 속도 1.2배 (사용자 11-27: 아군·적군 모두 더 빠르게). 이전: 1.7->2.3(+35%), 2.6 시험에서 1스테이지 첫 파도 돌파 여유 7.1s->4.5s로 급변해 2.3 조정 후 재상향
+  fwdSpeed:2.5, foeSpdMul:1.1, dragClamp:2.1, defLine:2.6, // 전진 2.3->2.7 + 적 속도 1.2배 (사용자 11-27: 아군·적군 모두 더 빠르게). 이전: 1.7->2.3(+35%), 2.6 시험에서 1스테이지 첫 파도 돌파 여유 7.1s->4.5s로 급변해 2.3 조정 후 재상향
   lives:5, killsPerLevel:8, levelMul:1.15,
   stageLen:55,
   bossEvery:5, // 5스테이지마다 보스 / 지역(맵 테마)은 보스 이후 바뀜
@@ -120,7 +120,7 @@ function fxTier(){const p=G.dmgMul*(growth(G.cls,G.allies.length).dmg||1);return
 const ENV={Knight:{w:1.2,r:22},Rogue:{w:1.8,r:20},Mage:{w:3.2,r:20},Barbarian:{w:3.6,r:18},Rogue_Hooded:{w:2.0,r:60},
   Ranger:{w:3.0,r:16,l:0.6},Glaive:{w:1.6,r:18,l:0.3},Sorcerer:{w:3.0,r:20,l:0.7},FrostLancer:{w:1.0,r:24,l:0.1},Pyro:{w:2.4,r:16,l:1.2},Prism:{w:0.8,r:40,l:0.4}}; // 병종 개편(사용자 승인 11-27 09:59): 전원 충분한 사거리(16+), 차별화는 공격 방식으로. l=조준 레인 반폭 고정(없으면 w/2−폭발/파동). 연쇄·폭발은 이 레인 밖으로 조준선±1.5/반경 1.0까지만
 for(const k in ENV)if(CLASSES[k])CLASSES[k].range=ENV[k].r;
-const RANGE_DMG=r=>Math.max(0.15,Math.pow(16/Math.max(16,r),2)); // 사용자 11-27: 사거리가 길수록 데미지를 훨씬 낮춤(16 기준 제곱 감쇠, 하한 0.15) — 가값, 플레이테스트 조정 예정
+const RANGE_DMG=r=>Math.max(0.15,Math.min(1,Math.pow(22/Math.max(22,r),2))); // 사용자 11-27: 사거리가 길수록 데미지를 훨씬 낮춤(22 기준 제곱 감쇠: 프리즘40→0.30, 후드60→0.15, 근·중거리 유지) — 가값, 플레이테스트 조정 예정
 function growth(cls,n){const g={...GROWTH_DEF};for(const [k,v] of (GROWTH[cls]||[]))if(n>=k)Object.assign(g,v);
   const e=ENV[cls];if(e){g.aoe=Math.min(g.aoe||0,Math.max(0,e.w/2-0.7));g.wave=Math.max(g.wave||0,e.r);g.waveW=Math.min(g.waveW,(e.w/2-0.35)/0.55);} // 개편: 파동 도달 거리도 사거리까지(이전엔 성장치 5~12에 묶여 교전 사거리가 사실상 그대로였음)
   {const k=(CLASSES[cls]||{}).kind;if(k!=='wave'&&k!=='spread'&&!(typeof SPECIAL_KINDS!=='undefined'&&SPECIAL_KINDS.has(k)))g.s=Math.max(g.s,Math.min(n,9));} // 보이는 대원 수 = 발사 줄 수(최대 9), 발당 피해는 줄 수로 나뉘어 총 화력 불변
@@ -398,8 +398,8 @@ function stageLayout(n){
   const L=[];const z0=-CFG.stageLen*(n-1);
   if(!isBossStage(n)){
     const foeTypes=regionFoes(n).mix; // 지역별 적 조합(11-27 확장)
-    [12,17,22,27,32,37,42,47,52,57].forEach((dz,w)=>{ // 파도 8->10개·5 간격(사용자 11-27: 적이 드문드문 — 더 자주 더 많이) — 첫 파도 12부터, 마지막 파도는 다음 구간 초반까지 이어짐
-      const cnt=n===1?2+(w%2):Math.min(12,4+n); // 1스테이지는 파도당 2~3마리, 2스테이지부터 늘어남(상한 8->12)
+    [14,19.5,25,30.5,36,41.5,47,52.5,58].forEach((dz,w)=>{ // 파도 8->10개·5 간격(사용자 11-27: 적이 드문드문 — 더 자주 더 많이) — 첫 파도 12부터, 마지막 파도는 다음 구간 초반까지 이어짐
+      const cnt=n===1?2+(w%2):Math.min(10,2+n); // 1스테이지는 파도당 2~3마리, 2스테이지부터 늘어남(상한 8->12)
       const cx=[-1.4,1.6,-0.6,1.2,-1.8,0.9,-1.2,1.7,0.2,-0.9][w%10]; // 원작처럼 파도가 통로 이곳저곳에 뭉쳐 나옴 — 가만히 서 있으면 맞지 않는 파도가 생김
       for(let i=0;i<cnt;i++){
         const t=foeTypes[(w+i+n)%foeTypes.length];
