@@ -117,6 +117,7 @@ const GROWTH={ // 탄수 초반 가속(사용자 07:44 "5명까지 탄 수"·매
 };
 const REF_S={Knight:[0,1,1,1,2,2,3,3,3,4,4,5,5,5,6,6,7],Rogue:[0,1,1,1,1,1,2,2,2,3,3,3,3,3,4,4,5],Mage:[0,1,1,1,1,1,2,2,2,2,2,3,3,3,4,4,5],Barbarian:[0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],Rogue_Hooded:[0,1,1,1,2,2,2,3,3,3,3,4,4,4,5,5,5]}; // 정규화 기준: 이전 탄수 곡선(총화력 유지용)
 // 실효 공격 배율 = 누적 배율을 스테이지 곡선 봉투로 상한(사용자 11-27 16:37 "후반으로 갈수록 너무 쉬워짐"): 성장은 스테이지 진행에 묶이고, 레벨/수정/단련은 봉투까지의 속도만 결정 — 후반 폭발적 격차 원천 차단
+const ALLY_DMG=1.15; // 아군 전체 피해 +15% (사용자 11-27 19:55) — 보스 체력(refDps)과 분리
 const effMul=()=>Math.min(G.dmgMul,2.2*Math.pow(stageMul(G.stage),0.9));
 function refDps(n){const m=Math.min(16,1+3*(n-1));const gr=growth('Knight',m);const c={...CLASSES.Knight,dmg:7.2}; // 구간 기준 화력: 나이트·구간별 기대 인원·봉투 배율의 기준 편성(보스 체력 산정 전용) // dmg는 개편 전 7.2 고정 — 나이트 강화(7.92)와 무관하게 보스 체력 직전 버전 유지(사용자 방침 11-27 18:37)
   const per=c.dmg*(2.2*Math.pow(stageMul(n),0.9))*(gr.dmg||1)*FORCE(m)*RANGE_DMG(c.range);
@@ -502,7 +503,7 @@ function fireVolley(c,n,gr){ // 일제사격 1회: gr.s갈래 부채꼴, 인원�
   if(t.kind==='foe'){const dl=Math.hypot(tp.x-from.x,tp.z-from.z);tp.z+=(t.spd||t.cfg.spd)*dl/PSPD;} // 적 전진 선행조준
   const base=Math.atan2(tp.x-from.x,-(tp.z-from.z)); // 전방 0 기준 좌우 각
   const fan=(gr.fan||0)*Math.PI/180;
-  const perDmg=c.dmg*effMul()*gr.dmg*FORCE(n)*RANGE_DMG(c.range)/(c.kind==='wave'?1:gr.s); // 총 화력 = 병종 기본 x 병력 곡선 1회 적용(REF_S 이중 적용 제거) x 사거리 감쇠 — 계수는 가값
+  const perDmg=c.dmg*effMul()*ALLY_DMG*gr.dmg*FORCE(n)*RANGE_DMG(c.range)/(c.kind==='wave'?1:gr.s); // 총 화력 = 병종 기본 x 병력 곡선 1회 적용(REF_S 이중 적용 제거) x 사거리 감쇠 — 계수는 가값
   if(SPECIAL_KINDS.has(c.kind)){fireSpecial(c,gr,t,from,tp,perDmg,n);for(const u of G.allies)playOnce(u,c.anim,'Walking_A');return;}
   if(c.kind==='spread'){const half=10.5*Math.PI/180;G.statV+=0;for(let i=0;i<7;i++){const ang=0+(i/6-0.5)*2*half;spawnVolleyBolt(c,{...gr,s:7},from,ang,perDmg*0.45,n,true);}efkPlay('hit',from,0.15,2.2);for(const u of G.allies)playOnce(u,c.anim,'Walking_A');return;}
   const dzT=Math.max(0.5,from.z-tp.z),angMax=Math.atan2(corridorW(dzT),dzT); // 탄 궤적이 사선대를 벗어나지 않게 발사각 제한
@@ -679,7 +680,7 @@ function fireBolt(unit,target){
   else if(c.kind==='fire'){mesh=new THREE.Mesh(new THREE.SphereGeometry(0.12,10,10),new THREE.MeshBasicMaterial({color:0xffe0a0}));grp.add(mesh);}
   else{mesh=new THREE.Mesh(new THREE.OctahedronGeometry(0.16),new THREE.MeshBasicMaterial({color:c.color}));mesh.scale.set(0.7,0.7,1.8);if(DART)mesh.scale.set(0.8,0.8,12.0); grp.add(mesh);} // DART: 원작식 긴 탄체(약 0.13x1.9)
   grp.position.copy(from);scene.add(grp);
-  const p={mesh:grp,target:c.homing?target:null,owner:unit,dmg:c.dmg*effMul(),speed:PSPD,kind:c.kind,color:c.color,hitEfk:c.hitEfk||'hit'};
+  const p={mesh:grp,target:c.homing?target:null,owner:unit,dmg:c.dmg*effMul()*ALLY_DMG,speed:PSPD,kind:c.kind,color:c.color,hitEfk:c.hitEfk||'hit'};
   if(!c.homing){const tp0=target.obj.position.clone();tp0.y=0.8;
     if(target.kind==='foe')tp0.z+=(target.spd||target.cfg.spd)*(tp0.distanceTo(from)/PSPD); // 적의 전진을 앞질러 조준(추적은 아님)
     const d0=tp0.clone().sub(from);const dist0=Math.max(0.1,d0.length());
@@ -691,7 +692,7 @@ function fireBolt(unit,target){
 function cleave(unit,target){
   const p=target.obj.position.clone();p.y=0.8;
   if((unit.fxT||0)<=0){efkPlay(unit.cfg.hitEfk||'ember',p,unit.cfg.fxScale||0.4,unit.cfg.fxSpeed||1.4);unit.fxT=0.7;}
-  damage(target,unit.cfg.dmg*effMul());
+  damage(target,unit.cfg.dmg*effMul()*ALLY_DMG);
   playOnce(unit,unit.cfg.anim,'Walking_A');
 }
 function damage(t,d,src){
