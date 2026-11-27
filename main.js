@@ -87,7 +87,7 @@ function sparkBurst(color,s=1){ // 링 없는 명중 스파크: 방사형 짧은
 
 // ---------- config (수치 전부 초안) ----------
 const CFG={
-  fwdSpeed:3.0, foeSpdMul:1.3, dragClamp:2.1, defLine:2.6, // 전진 2.4->3.0, 적 속도 1.08->1.30 (사용자 11-27 12:36: 아군·적군 모두 아직 느림)
+  fwdSpeed:3.5, foeSpdMul:1.3, dragClamp:2.1, defLine:2.6, // 전진 2.4->3.0->3.5 (사용자 11-27 12:36 양쪽 가속 + 14:15 "이동은 좀더 빨라도"), 적 속도 1.30 유지
   lives:8, killsPerLevel:6, levelMul:1.15, // 생명 5→8·레벨업 완화(11-27 12:36: 화력 너프+적 증가·가속에 맞춰 원작식 소모전 여유 확보)
   stageLen:55,
   bossEvery:5, // 5스테이지마다 보스 / 지역(맵 테마)은 보스 이후 바뀜
@@ -134,7 +134,13 @@ const LAT_STEP=0.5;const LANE_MIN=0.15; // 조준 레인 최소 반폭: 총 폭(
 function envHalf(cls,gr){const e=ENV[cls];if(!e)return 9;if(e.l)return e.l;return Math.max(LANE_MIN,e.w/2-hitR(cls,gr)-(gr.aoe||0)-latHalf(cls,gr));} // 조준 레인 반폭
 function reachHalf(cls,gr,dz){const e=ENV[cls];const lane=Math.min(0.6+Math.max(0,dz)*(0.08+Math.tan((gr.fan||0)*Math.PI/360)),envHalf(cls,gr));let r=lane+latHalf(cls,gr)+hitR(cls,gr)+(gr.aoe||0)+(XTRA[cls]||0);if(cls==='Ranger')r=Math.max(r,Math.tan(10.5*Math.PI/180)*Math.min(Math.max(0,dz),6)+0.35);return r;} // 실제 타격이 닿는 최대 반폭(레인+탄 반경+폭발/연쇄)
 window.__reach=(cls,n,dz)=>{const gr=growth(cls,n);return reachHalf(cls,gr,dz);};
-const CAPTIVE_CYCLE=['Mage','Rogue','Barbarian','Rogue_Hooded','Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism']; // 구출 감옥 순환(현재 병종 제외는 스폰 시 결정). 포격수 제거(사용자 11-27 10:00)
+const CAPTIVE_CYCLE=['Mage','Rogue','Barbarian','Rogue_Hooded','Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism']; // 구출 감옥 후보. 포격수 제거(사용자 11-27 10:00)
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;};
+function drawCaptiveCls(){ // 구출 병종: 판(페이지 로드)마다 셔플된 덱에서 순서대로 뽑음 — 매 판 다른 순서(사용자 11-27 14:15 "병종 배치 순서가 계속 같은 패턴": 기존 (스테이지+extra) 고정 순환은 판마다 동일했음)
+  if(!G.capDeck||!G.capDeck.length){G.capDeck=shuffle(CAPTIVE_CYCLE.slice());}
+  let cls=G.capDeck.pop();
+  if(cls===G.cls&&G.capDeck.length){const nxt=G.capDeck.pop();G.capDeck.push(cls);cls=nxt;} // 현재 병종 제외(원 의도): 덱에 다른 카드가 남아있으면 다음 카드로
+  return cls;}
 const EXTRA_CYCLE=['Rogue_Hooded','Mage','Knight','Barbarian','Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism'];
 // ---- 7개 신규 병종(제안서 12종 중 신규): 모델은 기존 5종 재사용(무기·색만 다름), 공격 방식은 고유 ----
 const _B=(b,o)=>({...CLASSES[b],...o});
@@ -374,7 +380,7 @@ async function spawnBlock(kind,x,z){
     const tag=labelSprite(`대원 +1 ${CLS_KO[cls]}`,'#ffd966',2.9);tag.position.y=2.1;grp.add(tag);
     grp.userData.rewardCls=cls;grp.userData.tag=tag;
   }else if(kind==='captive'){
-    const cls=CAPTIVE_CYCLE[(G.stage+G.extra)%CAPTIVE_CYCLE.length];G.extra++;
+    const cls=drawCaptiveCls();
     const {root}=await makeModel(A+CLASSES[cls].u,CLASSES[cls].s);root.position.y=0.05;root.rotation.y=Math.PI;grp.add(root);
     const cage=new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.55,1.5,10,1,true),new THREE.MeshBasicMaterial({color:CLASSES[cls].color,transparent:true,opacity:0.28,side:THREE.DoubleSide,depthWrite:false}));
     cage.position.y=0.75;grp.add(cage);
@@ -387,7 +393,7 @@ async function spawnBlock(kind,x,z){
     grp.userData.tag=tag;
   }
   grp.add(discShadow(0.5));
-  const bhp=Math.round(REC_DPS*blockMul(G.stage)*4.2*(1+0.3*(NG.cycle-1))); // 구간 권장 화력 x 약 4.2초(전진 가속으로 사거리 체류 8.2s->5.4s로 줄어 6초는 파괴 불가 — 동일 파괴 여유 유지), 스폰 시점 고정(현재 공격 배율과 무관 — 제안서) // 원작 참고: 진행할수록 상자 수치 증가 · 회차당 +30%
+  const bhp=Math.round(REC_DPS*blockMul(G.stage)*3.6*(1+0.3*(NG.cycle-1))); // 구간 권장 화력 x 약 3.6초: 전진 3.0->3.5로 사거리 체류 5.4s->4.6s(×3.0/3.5) — 동일 파괴 여유 유지를 위해 체류 시간 비례 하향(4.2->3.6), 스폰 시점 고정(현재 공격 배율과 무관 — 제안서) // 원작 참고: 진행할수록 상자 수치 증가 · 회차당 +30%
   const unit={kind:'block',btype:kind,hp:bhp,maxHp:bhp,obj:grp,hitT:0};
   const num=makeNumSprite(bhp);num.sprite.position.y=1.55;grp.add(num.sprite);unit.hpNum=num;
   scene.add(grp);G.blocks.push(unit);
@@ -411,11 +417,10 @@ function stageLayout(n){
       }
       dz+=n===1?R(6.5,8.0):R(4.0,5.2); // 파도 간격도 가변(원작: 스폰 간격에 ±20% 잡음). 1스테이지는 파도가 한 물리씩 도착하도록 간격 확보
     }
-    const sx=()=>(Math.random()<0.5?-1:1)*R(1.2,1.8); // 보상 위치·순서 간격 랜덤
-    L.push({dz:R(5,7),type:'chest',x:sx()}); // 첫 상자를 앞당겨 초반 병력 보강
-    L.push({dz:R(19,26),type:'crystal',x:sx()});
-    L.push({dz:R(30,36),type:'chest',x:sx()});
-    L.push({dz:R(41,47),type:'captive',x:(Math.random()<0.5?-1:1)*R(1.5,1.8)});
+    const sx=()=>(Math.random()<0.5?-1:1)*R(1.2,1.8); // 보상 위치·간격 랜덤
+    const rx=t=>t==='captive'?(Math.random()<0.5?-1:1)*R(1.5,1.8):sx();
+    const rwTypes=n===1?['chest'].concat(shuffle(['crystal','chest','captive'])):shuffle(['chest','crystal','chest','captive']); // 보상 종류 순서도 판마다 셔플(사용자 11-27 14:15: 종류 순서가 고정이어서 같은 패턴으로 느껴짐) — 1스테이지는 첫 상자 고정(초반 병력 보강 유지)
+    [R(5,7),R(19,26),R(30,36),R(41,47)].forEach((dz,i)=>L.push({dz,type:rwTypes[i],x:rx(rwTypes[i])}));
   }else{
     const rf=regionFoes(n).mix,pick=()=>rf[Math.floor(Math.random()*rf.length)]; // 보스 구간 잔졸 구성도 랜덤
     const j=d=>d+R(-1.5,1.5),jx=x=>Math.max(-2,Math.min(2,x+R(-0.5,0.5)));
@@ -434,8 +439,8 @@ function stageLayout(n){
     L.push({dz:j(47),type:'foe',foe:pick(),x:jx(1.5),wave:5});
     L.push({dz:j(51),type:'foe',foe:pick(),x:jx(-1.4),wave:6});
     L.push({dz:j(52),type:'foe',foe:pick(),x:jx(0.8),wave:6});
-    L.push({dz:j(42),type:'chest',x:jx(1.6)});
-    L.push({dz:j(51),type:'captive',x:jx(-1.7)});
+    if(Math.random()<0.5){L.push({dz:j(42),type:'chest',x:jx(1.6)});L.push({dz:j(51),type:'captive',x:jx(-1.7)});}
+    else{L.push({dz:j(42),type:'captive',x:jx(-1.7)});L.push({dz:j(51),type:'chest',x:jx(1.6)});} // 보스 구간 보상 순서도 반반으로
   }
   L.forEach(e=>e.z=z0-e.dz);
   return L;
@@ -758,7 +763,7 @@ function togglePause(){if(G.state!=='play')return;G.paused=!G.paused;const o=doc
 addEventListener('keydown',e=>{if(e.code==='KeyP'||e.code==='Escape'){togglePause();e.preventDefault();return;}const k=KMAP[e.code];if(!k)return;KEYS.add(k);e.preventDefault();});
 addEventListener('keyup',e=>{const k=KMAP[e.code];if(k)KEYS.delete(k);});
 addEventListener('blur',()=>KEYS.clear());
-function keyMove(dt){const d=(KEYS.has('R')?1:0)-(KEYS.has('L')?1:0);if(d)G.x=THREE.MathUtils.clamp(G.x+d*5.5*dt,-CFG.dragClamp,CFG.dragClamp);}
+function keyMove(dt){const d=(KEYS.has('R')?1:0)-(KEYS.has('L')?1:0);if(d)G.x=THREE.MathUtils.clamp(G.x+d*6.5*dt,-CFG.dragClamp,CFG.dragClamp);} // 키 이동 5.5->6.5(11-27 14:15)
 
 // ---------- flow ----------
 const $=id=>document.getElementById(id);
@@ -953,7 +958,7 @@ function update(dt){
   // advance (통로 진행은 보스전에도 멈추지 않음)
   G.squad.position.z-=CFG.fwdSpeed*dt;
   keyMove(dt);
-  G.squad.position.x+=(G.x-G.squad.position.x)*Math.min(1,dt*10);
+  G.squad.position.x+=(G.x-G.squad.position.x)*Math.min(1,dt*12); // 좌우 반응도 한 단계(10->12, 사용자 11-27 14:15 이동 가속)
   const sq=G.squad.position;
   { // 가이드: 사선대 경계 2줄 — corridorW(실제 조준·충돌 판정 함수)를 그대로 샘플링해 그림: 보이는 모양 = 실제 타격 범위(성장·고정 총 폭 상자 반영)
     const N=14;if(!G.guideStrips){G.guideL.visible=false;G.guideR.visible=false;
@@ -1116,5 +1121,6 @@ window.__end=c=>endGame(c);
 window.__fwd=v=>{CFG.fwdSpeed=v;return 1;}; // 검증 훅
 window.__ng=()=>NG; // 검증 훅: 다회차 상태
 window.__layout=n=>stageLayout(n); // 검증 훅: 구간 배치(지역별 적 조합 확인)
+window.__capDraw=()=>drawCaptiveCls(); // 검증 훅: 이 판의 구출 병종 순서(호출마다 다음 카드)
 window.__theme=n=>themeOf(n).name; // 검증 훅: 지역 테마 이름
 window.__victory=()=>victory(); // 검증 훅
