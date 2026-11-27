@@ -88,7 +88,7 @@ function sparkBurst(color,s=1){ // 링 없는 명중 스파크: 방사형 짧은
 // ---------- config (수치 전부 초안) ----------
 const CFG={
   fwdSpeed:3.5, foeSpdMul:1.3, dragClamp:2.1, defLine:2.6, // 전진 2.4->3.0->3.5 (사용자 11-27 12:36 양쪽 가속 + 14:15 "이동은 좀더 빨라도"), 적 속도 1.30 유지
-  lives:8, lvK0:6, lvStep:3, levelMul:1.05, // 생명 8 유지 · 성장 둔화(사용자 11-27 16:37 "강해지는 속도가 좀 줄던지"): 필요 처치가 6,9,12…로 늘고 배율 1.15→1.07 — 기존엔 후반 수백~수천 레벨 ×1.15로 배율이 10^50배 이상 폭증해 후반이 무의미해짐
+  lives:8, lvK0:6, lvStep:3, levelMul:1.08, // 생명 8 유지 · 성장 둔화(사용자 11-27 16:37 "강해지는 속도가 좀 줄던지"): 필요 처치가 6,9,12…로 늘고 배율 1.15→1.07 — 기존엔 후반 수백~수천 레벨 ×1.15로 배율이 10^50배 이상 폭증해 후반이 무의미해짐
   stageLen:55,
   bossEvery:5, // 5스테이지마다 보스 / 지역(맵 테마)은 보스 이후 바뀜
   finalStage:40, // 8지역 x 5구간 = 40스테이지: 최종 보스(8번째) 격파가 클리어 조건(사용자 승인 11-27)
@@ -352,7 +352,7 @@ async function spawnFoe(type,x,z,isBoss=false,wave){
     const gm=await loadG(A+BOSS.u),gb=await loadG(A+bdef.u);const refH=bboxH(gm.scene)*BOSS.s;
     f={...BOSS,u:bdef.u,hp:Math.max(300,Math.round(refDps(stg0)*0.75*3.2*Math.sqrt(bdef.hpm||1))),s:refH*bdef.m/bboxH(gb.scene),hy:refH*bdef.m+0.8};} // 보스 체력 = 구간 기준 화력(의 75%)×3.2초: 스테이지 고정값이라 성장·병종 선택이 그대로 결전 시간 단축으로 체감됨(기준 편성이면 약 4초, 돌파 창구 약 5초)(11-27 16:37)
   const rf=regionFoes(stg0); // 지역별 적 보정(조합은 stageLayout이 결정)
-  const hscale=(isBoss?1:(stg0===1?0.31:stageMul(stg0)))*(isBoss?cycleHp():rf.hp*cycleHp()); // 보스는 refDps 기준 스케일이라 구간 곡선 미적용(회차 보정만) // 기본 체력 +30% 반영: 1스테이지 계수 0.52→0.31(=구 곡선×0.6: 사거리 너프 실효 보존 기준), 2스테이지부터 상승 곡선 그대로
+  const hscale=(isBoss?1:(stg0===1?0.31:stg0===2?0.65:stageMul(stg0)))*(isBoss?cycleHp():rf.hp*cycleHp()); // 보스는 refDps 기준 스케일이라 구간 곡선 미적용(회차 보정만) // 기본 체력 +30% 반영: 1스테이지 계수 0.52→0.31(=구 곡선×0.6: 사거리 너프 실효 보존 기준), 2스테이지부터 상승 곡선 그대로
   const sscale=(isBoss?1:Math.min(1.9,1+0.07*(stg0-1))*(stg0===1?0.85:1))*(isBoss?1:rf.spd)*cycleSpd(); // 원작 참고: 단계가 갈수록 적 이동 가속 — 속도 상한 1.5→1.9: 체력 스펀지가 아니라 압박으로 후반 긴장 유지(11-27 16:37)
   const {root,anims}=await makeModel(A+f.u,f.s,isBoss?(bdef.tint||null):[1.05,0.8,0.8]);
   root.position.set(x,0,z);root.rotation.y=0;
@@ -711,7 +711,7 @@ function killUnit(t){
     const dp=t.obj.position.clone();dp.y=0.9;
     if(t.isBoss)efkPlay('featherbomb',dp,0.40,1.8);
     else{const tier=fxTier();if((G.sparkT||0)<=0){const sp=sparkBurst((CLASSES[G.cls]||{}).color||0xffe9a8,tier>=2?1.35:1.15);sp.position.copy(dp);const fe=addFx(sp,0.24,false);fe.grow=1;fe.spark=sp.userData.mat;G.sparkT=0.12;}if(tier>=3&&(G.fx3T||0)<=0){efkPlay('toonhit',dp,0.5,2.0);G.fx3T=0.15;}} // 다중 동시 처치 피크 제한 + 성장 티어(강타 소형 폭발은 비화염), T3 폭발 교체(featherbomb→toonhit 0.5): 가림 없이 타격지점 식별(동일조건 실속 영상 비교)
-    if(++G.lvKills>=CFG.lvK0+CFG.lvStep*(G.level-1)){G.lvKills=0;G.level++;G.dmgMul*=CFG.levelMul;
+    if(++G.lvKills>=CFG.lvK0+CFG.lvStep*Math.max(0,G.level-10)){G.lvKills=0;G.level++;G.dmgMul*=CFG.levelMul; // 초반(L10까지)은 기존 6처치 페이스 유지 — 둔화는 중후반부터(11-27 16:55 검증: 초반 둔화가 2스테이지 체력 절벽과 맞물려 패배)
       {const rp=ring(0xffd966,1.2,0.8);rp.position.set(G.squad.position.x,0.12,G.squad.position.z);addFx(rp,0.6);} // 밝은 중심면 없는 얇은 고리 표시(비교빌드)
       const l=labelSprite('레벨 업!','#ffe27a',2.4);l.position.set(G.squad.position.x,2.6,G.squad.position.z-1);addFx(l,1.6);}
     if(t.acts.Death_A||t.acts.Death){const d=t.acts.Death_A||t.acts.Death;
