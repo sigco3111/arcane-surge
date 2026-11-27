@@ -202,7 +202,7 @@ const bboxH=o=>{const b=new THREE.Box3().setFromObject(o);return Math.max(0.01,b
 // ---------- state ----------
 const G={state:'title',stage:1,lives:CFG.lives,kills:0,level:1,dmgMul:1,statV:0,statB:0,statH:0,statX:0,
   squad:null,cls:'Knight',allies:[],enemies:[],blocks:[],projs:[],stageZ0:0,spawned:new Set(),extra:0,waveGrps:{},vcd:0,burstLeft:0,burstT:0,fxT:0,combo:0,comboT:0,
-  layout:[],boss:null,x:0};
+  layout:[],boss:null,x:0,q:[]};
 const BEST_KEY='arcaneSurgeBestDistance_v1';
 let BEST=0;try{BEST=parseInt(localStorage.getItem(BEST_KEY))||0;}catch(e){}
 function saveBest(d){if(d>BEST){BEST=d;try{localStorage.setItem(BEST_KEY,String(d));}catch(e){}}}
