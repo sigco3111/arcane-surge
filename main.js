@@ -97,7 +97,7 @@ function blockMul(n){return Math.pow(1.3,Math.min(n,12)-1)*Math.pow(1.15,Math.ma
 const isBossStage=n=>n>0&&n%CFG.bossEvery===0;
 const CLASSES={
   Knight:{u:'Knight.glb',s:0.47,dmg:6,cd:0.9,range:9.5,kind:'bolt',color:0xffe27a,hitEfk:'hit',fxScale:0.22,fxSpeed:2.1,anim:'1H_Melee_Attack_Stab',w:{slot:'handslotr',u:'weapons/spear_A.gltf'}},
-  Barbarian:{u:'Barbarian.glb',s:0.40,dmg:14,cd:1.25,range:9.5,kind:'wave',color:0xff7a2a,hitEfk:'hit',fxScale:0.1,fxSpeed:2.4,anim:'2H_Melee_Attack_Spin'}, // hit로 교체: ember 잔여 화염이 다중 명중 피크에서 누적되는 문제 차단
+  Barbarian:{u:'Barbarian.glb',s:0.40,dmg:14,cd:1.25,range:9.5,kind:'wave',color:0xff7a2a,hitEfk:'hit',fxScale:0.1,fxSpeed:2.4,anim:'2H_Melee_Attack_Spin',blockMul:3}, // 상자·방벽 파괴 전담(개편안): 블록 피해 3배. hit로 교체: ember 잔여 화염이 다중 명중 피크에서 누적되는 문제 차단
   Rogue:{u:'Rogue.glb',s:0.47,dmg:4,cd:0.55,range:10.5,kind:'shard',color:0x9fdcff,hitEfk:'cold',fxScale:0.11,fxSpeed:2.6,anim:'2H_Ranged_Shoot',w:{slot:'handslotl',u:'weapons/bow_A_withString.gltf'}},
   Mage:{u:'Mage.glb',s:0.38,dmg:9,cd:1.15,range:10.5,kind:'fire',color:0xff7a2a,hitEfk:'flame',fxScale:0.11,fxSpeed:2.8,anim:'Spellcast_Shoot',w:{slot:'handslotr',u:'weapons/wand.gltf'}},
 };
@@ -115,48 +115,47 @@ const GROWTH={ // 탄수 초반 가속(사용자 07:44 "5명까지 탄 수"·매
 const REF_S={Knight:[0,1,1,1,2,2,3,3,3,4,4,5,5,5,6,6,7],Rogue:[0,1,1,1,1,1,2,2,2,3,3,3,3,3,4,4,5],Mage:[0,1,1,1,1,1,2,2,2,2,2,3,3,3,4,4,5],Barbarian:[0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],Rogue_Hooded:[0,1,1,1,2,2,2,3,3,3,3,4,4,4,5,5,5]}; // 정규화 기준: 이전 탄수 곡선(총화력 유지용)
 function fxTier(){const p=G.dmgMul*(growth(G.cls,G.allies.length).dmg||1);return p>=3?3:p>=1.6?2:1;} // 성장형 타격FX 단계(가값 임계치 — 단계 비교 검증 후 조정)
 // 병종별 고정 총 타격 폭/사거리(제안서): 폭에는 폭발 반경·파동 폭이 포함, 성장해도 이 상자를 넘지 않음
-const ENV={Knight:{w:1.2,r:14},Rogue:{w:1.8,r:12},Mage:{w:2.6,r:8},Barbarian:{w:3.6,r:5},Rogue_Hooded:{w:2.0,r:11},
-  Ranger:{w:3.0,r:6,l:0.6},Glaive:{w:1.6,r:10,l:0.3},Sorcerer:{w:3.0,r:12,l:0.7},FrostLancer:{w:1.0,r:15,l:0.1},Pyro:{w:2.4,r:4,l:1.2},Prism:{w:0.8,r:16,l:0.4},Artillery:{w:2.8,r:13,l:0.4}}; // l=조준 레인 반폭 고정(없으면 w/2−폭발/파동). 연쇄·폭발은 이 레인 밖으로 조준선±1.5/반경 1.0까지만
+const ENV={Knight:{w:1.2,r:22},Rogue:{w:1.8,r:20},Mage:{w:3.2,r:20},Barbarian:{w:3.6,r:18},Rogue_Hooded:{w:2.0,r:60},
+  Ranger:{w:3.0,r:16,l:0.6},Glaive:{w:1.6,r:18,l:0.3},Sorcerer:{w:3.0,r:20,l:0.7},FrostLancer:{w:1.0,r:24,l:0.1},Pyro:{w:2.4,r:16,l:1.2},Prism:{w:0.8,r:40,l:0.4}}; // 병종 개편(사용자 승인 11-27 09:59): 전원 충분한 사거리(16+), 차별화는 공격 방식으로. l=조준 레인 반폭 고정(없으면 w/2−폭발/파동). 연쇄·폭발은 이 레인 밖으로 조준선±1.5/반경 1.0까지만
 for(const k in ENV)if(CLASSES[k])CLASSES[k].range=ENV[k].r;
 function growth(cls,n){const g={...GROWTH_DEF};for(const [k,v] of (GROWTH[cls]||[]))if(n>=k)Object.assign(g,v);
-  const e=ENV[cls];if(e){g.aoe=Math.min(g.aoe||0,Math.max(0,e.w/2-0.7));g.wave=Math.min(g.wave||0,e.r);g.waveW=Math.min(g.waveW,(e.w/2-0.35)/0.55);}
+  const e=ENV[cls];if(e){g.aoe=Math.min(g.aoe||0,Math.max(0,e.w/2-0.7));g.wave=Math.max(g.wave||0,e.r);g.waveW=Math.min(g.waveW,(e.w/2-0.35)/0.55);} // 개편: 파동 도달 거리도 사거리까지(이전엔 성장치 5~12에 묶여 교전 사거리가 사실상 그대로였음)
   {const k=(CLASSES[cls]||{}).kind;if(k!=='wave'&&k!=='spread'&&!(typeof SPECIAL_KINDS!=='undefined'&&SPECIAL_KINDS.has(k)))g.s=Math.max(g.s,Math.min(n,9));} // 보이는 대원 수 = 발사 줄 수(최대 9), 발당 피해는 줄 수로 나뉘어 총 화력 불변
   g.fan=0; // 가로 나란히 발사로 전환: 각도 부채꼴 없음(Ranger 산탄은 별도 고정)
   return g;}
 const HITR={Knight:0.25,Rogue:0.35,Mage:0.35,Rogue_Hooded:0.35,Ranger:0.35,Glaive:0.5,FrostLancer:0.4,Barbarian:0}; // 탄 명중 반경(없으면 즉시 판정 0)
-const XTRA={Sorcerer:0.8,Artillery:1.0}; // 연쇄 추가 반경(조준선 0.7→1.5) / 포격 폭발 반경
+const XTRA={Sorcerer:0.8}; // 연쇄 추가 반경(조준선 0.7→1.5)
 function hitR(cls,gr){return cls==='Barbarian'?0.55*(gr.waveW||1):(HITR[cls]||0);}
 function latHalf(cls,gr){const e=ENV[cls];if(!e||e.l)return 0;const room=Math.max(0,e.w/2-hitR(cls,gr)-(gr.aoe||0));return Math.min(Math.max(0,((gr.s||1)-1))*LAT_STEP/2,Math.max(0,room-LANE_MIN));} // 가로 나란히 발사 편대의 반폭(총 폭 상자 안)
 const LAT_STEP=0.5;const LANE_MIN=0.15; // 조준 레인 최소 반폭: 총 폭(레인+편대+탄 반경) <= 병종 폭 유지
 function envHalf(cls,gr){const e=ENV[cls];if(!e)return 9;if(e.l)return e.l;return Math.max(LANE_MIN,e.w/2-hitR(cls,gr)-(gr.aoe||0)-latHalf(cls,gr));} // 조준 레인 반폭
 function reachHalf(cls,gr,dz){const e=ENV[cls];const lane=Math.min(0.6+Math.max(0,dz)*(0.08+Math.tan((gr.fan||0)*Math.PI/360)),envHalf(cls,gr));let r=lane+latHalf(cls,gr)+hitR(cls,gr)+(gr.aoe||0)+(XTRA[cls]||0);if(cls==='Ranger')r=Math.max(r,Math.tan(10.5*Math.PI/180)*Math.min(Math.max(0,dz),6)+0.35);return r;} // 실제 타격이 닿는 최대 반폭(레인+탄 반경+폭발/연쇄)
 window.__reach=(cls,n,dz)=>{const gr=growth(cls,n);return reachHalf(cls,gr,dz);};
-const CAPTIVE_CYCLE=['Mage','Rogue','Barbarian','Rogue_Hooded','Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism','Artillery']; // 구출 감옥 순환(현재 병종 제외는 스폰 시 결정)
-const EXTRA_CYCLE=['Rogue_Hooded','Mage','Knight','Barbarian','Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism','Artillery'];
+const CAPTIVE_CYCLE=['Mage','Rogue','Barbarian','Rogue_Hooded','Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism']; // 구출 감옥 순환(현재 병종 제외는 스폰 시 결정). 포격수 제거(사용자 11-27 10:00)
+const EXTRA_CYCLE=['Rogue_Hooded','Mage','Knight','Barbarian','Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism'];
 // ---- 7개 신규 병종(제안서 12종 중 신규): 모델은 기존 5종 재사용(무기·색만 다름), 공격 방식은 고유 ----
 const _B=(b,o)=>({...CLASSES[b],...o});
-CLASSES.Ranger=_B('Rogue',{kind:'spread',dmg:7,cd:1.0,range:6.5,color:0x8fe08a,hitEfk:'hit',fxScale:0.11,fxSpeed:2.6,maxD:6});
+CLASSES.Ranger=_B('Rogue',{kind:'spread',dmg:7,cd:1.0,range:16,color:0x8fe08a,hitEfk:'hit',fxScale:0.11,fxSpeed:2.6}); // maxD 제거: 개편 사거리 16에 맞춰 탄 도달 거리도 연장
 CLASSES.Glaive=_B('Barbarian',{kind:'boomerang',dmg:8,cd:1.4,range:10,color:0xffc84a,hitEfk:'hit',fxScale:0.12,fxSpeed:2.4,anim:'2H_Melee_Attack_Slice'});
 CLASSES.Sorcerer=_B('Mage',{kind:'chain',dmg:6,cd:1.1,range:10,color:0xbfe6ff,hitEfk:'hit',fxScale:0.14,fxSpeed:2.6});
 CLASSES.FrostLancer=_B('Knight',{kind:'lance',dmg:5,cd:0.8,range:15,color:0x7fd8ff,hitEfk:'cold',fxScale:0.11,fxSpeed:2.6});
-CLASSES.Pyro=_B('Mage',{kind:'flame',dmg:3,cd:0.3,range:4,color:0xff8a2a,hitEfk:'hit',fxScale:0.1,fxSpeed:2.6});
+CLASSES.Pyro=_B('Mage',{kind:'flame',dmg:6,cd:0.3,range:16,color:0xff8a2a,hitEfk:'hit',fxScale:0.1,fxSpeed:2.6}); // 지속 화염 고화력(개편안): DPS 2배급 상향, 사거리도 16으로
 CLASSES.Prism=_B('Rogue_Hooded',{kind:'beam',dmg:2.2,cd:0.25,range:16,color:0xe6c8ff,hitEfk:'hit',fxScale:0.1,fxSpeed:2.6,homing:false});
-CLASSES.Artillery=_B('Barbarian',{kind:'lob',dmg:9,cd:1.8,range:13,color:0xffd27a,hitEfk:'hit',fxScale:0.14,fxSpeed:2.4,anim:'2H_Melee_Attack_Chop'});
 // 발사 간격 단축(사용자 11-26 19:59 "너무 띄엄띄엄" 정정): 원작 석궁 4발/초, 다른 무기 2.2~3.4발/초 수준으로 맞춤. 1발 피해는 간격 비율만큼 낮춰 초당 화력(DPS)은 유지
-const CD_NEW={Knight:0.25,Rogue:0.20,Rogue_Hooded:0.20,Mage:0.40,Barbarian:0.50,Ranger:0.40,Glaive:0.50,Sorcerer:0.40,FrostLancer:0.35,Artillery:0.60};
+const CD_NEW={Knight:0.25,Rogue:0.16,Rogue_Hooded:0.20,Mage:0.40,Barbarian:0.50,Ranger:0.40,Glaive:0.50,Sorcerer:0.40,FrostLancer:0.35}; // 로그 0.20→0.16: 초당 6발+ 연발(개편안), 발당 피해는 비율로 낮춰 DPS 유지
 for(const k in CD_NEW){const c=CLASSES[k];if(!c)continue;const r=CD_NEW[k]/c.cd;c.cd=CD_NEW[k];c.dmg*=r;}
-for(const k of ['Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism','Artillery'])GROWTH[k]=[[8,{dmg:1.2}],[12,{dmg:1.4}],[16,{dmg:1.6}]];
-for(const k in ENV)if(CLASSES[k]&&CLASSES[k].range!==ENV[k].r&&['Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism','Artillery'].includes(k))CLASSES[k].range=ENV[k].r;
-const SPECIAL_KINDS=new Set(['boomerang','chain','lance','flame','beam','lob']);
+for(const k of ['Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism'])GROWTH[k]=[[8,{dmg:1.2}],[12,{dmg:1.4}],[16,{dmg:1.6}]];
+for(const k in ENV)if(CLASSES[k]&&CLASSES[k].range!==ENV[k].r&&['Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism'].includes(k))CLASSES[k].range=ENV[k].r;
+const SPECIAL_KINDS=new Set(['boomerang','chain','lance','flame','beam']);
 
-const CLS_KO2={Ranger:'레인저',Glaive:'글레이브',Sorcerer:'소서러',FrostLancer:'프로스트 랜서',Pyro:'파이로',Prism:'프리즘 사수',Artillery:'포격수'};
+const CLS_KO2={Ranger:'레인저',Glaive:'글레이브',Sorcerer:'소서러',FrostLancer:'프로스트 랜서',Pyro:'파이로',Prism:'프리즘 사수'};
 const CLS_KO={...CLS_KO2,Knight:'나이트',Barbarian:'바바리안',Rogue:'로그',Mage:'메이지',Rogue_Hooded:'후드 로그'};
 const FOES={
-  Warrior:{u:'Skeleton_Warrior.glb',hp:26,spd:1.35,s:0.56,rr:0.6},
-  Minion:{u:'Skeleton_Minion.glb',hp:16,spd:2.05,s:0.56,rr:0.5},
-  Rogue:{u:'Skeleton_Rogue.glb',hp:20,spd:1.7,s:0.56,rr:0.55},
-  Mage:{u:'Skeleton_Mage.glb',hp:18,spd:1.25,s:0.56,rr:0.55},
-  Blob:{u:'blob/GreenBlob.gltf',hp:10,spd:2.6,s:0.35,rr:0.4,gltf:true},
+  Warrior:{u:'Skeleton_Warrior.glb',hp:38,spd:1.5,s:0.56,rr:0.6},
+  Minion:{u:'Skeleton_Minion.glb',hp:23,spd:2.25,s:0.56,rr:0.5},
+  Rogue:{u:'Skeleton_Rogue.glb',hp:29,spd:1.85,s:0.56,rr:0.55},
+  Mage:{u:'Skeleton_Mage.glb',hp:26,spd:1.4,s:0.56,rr:0.55},
+  Blob:{u:'blob/GreenBlob.gltf',hp:15,spd:2.85,s:0.35,rr:0.4,gltf:true}, // 개편 보정(사용자 승인): 사거리 상향으로 쉬워지는 만큼 체력 +45%·속도 +10%
 };
 let TS=parseFloat(new URLSearchParams(location.search).get('ts'))||1; // 테스트용 시간배율(전체 균일)
 window.__setTS=v=>{TS=v;}; // 시연: 실행 중 배율 변경 훅
@@ -179,7 +178,7 @@ const FXLIST=new URLSearchParams(location.search).get('fxlist');
 const NUMFX=parseInt(new URLSearchParams(location.search).get('numfx')||'1',10); // 시연: 숫자 차감 강조
 const DART=!!new URLSearchParams(location.search).get('dart'); // 시연: 원작식 빠른 직사 연사감
 const PSPD=DART?58:30; // 효과 청취 전용: id=경로,id=경로
-const BOSS={u:'bosses/Mushnub_Evolved.gltf',hp:520,spd:1.2,s:0.95,rr:1.3,gltf:true}; // 접근 1.9->1.2: 전진 2.6과 합산 상대속도 3.8로 기존(3.6) 수준 유지 — 보스전 시간 동일
+const BOSS={u:'bosses/Mushnub_Evolved.gltf',hp:750,spd:1.2,s:0.95,rr:1.3,gltf:true}; // 개편 보정: 보스 체력 +30% // 접근 1.9->1.2: 전진 2.6과 합산 상대속도 3.8로 기존(3.6) 수준 유지 — 보스전 시간 동일
 const BOSSES=[{u:'bosses/Mushnub_Evolved.gltf',name:'머쉬넙',m:1},{u:'bosses/Orc.gltf',name:'오크 대장',m:1.15},{u:'bosses/Cyclops.gltf',name:'사이클롭스',m:1.3},
   {u:'bosses/Yeti.gltf',name:'예티',m:1.2},{u:'bosses/YellowDragon.gltf',name:'황금 드래곤',m:1.25},{u:'bosses/Cthulhu.gltf',name:'심연의 군주',m:1.2}]; // 보스 순환(원 보스 크기 기준으로 자동 정규화)
 const bboxH=o=>{const b=new THREE.Box3().setFromObject(o);return Math.max(0.01,b.max.y-b.min.y);};
@@ -310,7 +309,7 @@ async function spawnFoe(type,x,z,isBoss=false,wave){
   if(isBoss){bdef=BOSSES[(Math.floor(stg0/CFG.bossEvery)-1+BOSSES.length*100)%BOSSES.length];
     const gm=await loadG(A+BOSS.u),gb=await loadG(A+bdef.u);const refH=bboxH(gm.scene)*BOSS.s;
     f={...BOSS,u:bdef.u,s:refH*bdef.m/bboxH(gb.scene),hy:refH*bdef.m+0.8};}
-  const hscale=stg0===1?0.75:stageMul(stg0); // 1스테이지는 현 난이도 유지(0.75), 2스테이지부터 체력 1.5배로 상승 후 계속 증가
+  const hscale=stg0===1?0.52:stageMul(stg0); // 기본 체력 +30% 반영: 1스테이지 계수 0.75→0.52로 실효 난이도 유지, 2스테이지부터 상승 곡선 그대로
   const sscale=isBoss?1:Math.min(1.5,1+0.07*(stg0-1))*(stg0===1?0.85:1); // 원작 참고: 단계가 갈수록 적 이동 가속
   const {root,anims}=await makeModel(A+f.u,f.s,isBoss?null:[1.05,0.8,0.8]);
   root.position.set(x,0,z);root.rotation.y=0;
@@ -513,7 +512,7 @@ function fireSpecial(c,gr,t,from,tp,dmg,n){
     const pts=[from.clone()];const first=t;const hit=[first];
     const hp=first.obj.position.clone();hp.y=0.9;pts.push(hp);damage(first,dmg,'skill');efkPlay('thunder',new THREE.Vector3(hp.x,0,hp.z),0.12,2.2);
     let last=first;
-    for(let h=0;h<3;h++){let best=null,bd=1e9;
+    for(let h=0;h<4;h++){let best=null,bd=1e9; // 5연쇄(개편안): 첫 대상 + 4회 연쇄
       for(const e of foesAlive()){if(hit.includes(e))continue;const p=e.obj.position;if(p.z>from.z-0.3)continue;
         if(Math.abs(p.x-aimX(p.z))>1.5)continue; // 연쇄는 조준선 ±1.5 안에서만 — 총 폭 3.0
         const d=Math.hypot(p.x-last.obj.position.x,p.z-last.obj.position.z);if(d<=1.5&&d<bd){bd=d;best=e;}}
@@ -526,16 +525,6 @@ function fireSpecial(c,gr,t,from,tp,dmg,n){
   if(k==='beam'){
     const len=c.range;for(let i=0;i<5;i++){const zz=from.z-1.5-i*3.2;efkPlay('aura',new THREE.Vector3(aimX(zz),0.9,zz),0.16,2.4);}
     for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)]){const p=o.obj.position;const dz=from.z-p.z;if(dz<=0||dz>len)continue;if(Math.abs(p.x-aimX(p.z))>0.4)continue;damage(o,dmg,'skill');if(o.kind==='foe'&&!(G.sparkT>0)){efkPlay('thunder',new THREE.Vector3(p.x,0,p.z),0.1,2.2);G.sparkT=0.12;}}return;}
-  if(k==='lob'){
-    const lead=t.kind==='foe'?(t.spd||t.cfg.spd||1)*0.75:0;
-    const to=new THREE.Vector3(tp.x,0.1,tp.z+lead);
-    const ball=new THREE.Mesh(new THREE.SphereGeometry(0.3,10,10),new THREE.MeshBasicMaterial({color:c.color}));ball.position.copy(from);scene.add(ball);
-    const mk=ring(0xffd27a,1.0,0.35);mk.position.set(to.x,0.1,to.z);scene.add(mk);
-    const dur=0.75;let el=0;G.q=G.q||[];const th=efkPlay('fireball',from,0.14,1.6);
-    G.q.push({t:dur,step:(dt)=>{el+=dt;const u=Math.min(1,el/dur);ball.position.set(from.x+(to.x-from.x)*u,1.0+(to.y-1.0)*u+3.2*Math.sin(Math.PI*u),from.z+(to.z-from.z)*u);if(th){try{th.setLocation(ball.position.x,ball.position.y,ball.position.z);}catch(e){}}},
-      fn:()=>{scene.remove(ball);scene.remove(mk);const rm=ring(0xff9a4a,1.0,0.6);rm.position.set(to.x,0.12,to.z);addFx(rm,0.35);
-        if(th){try{th.stop();}catch(e){}}efkPlay('meteo',new THREE.Vector3(to.x,0,to.z),0.3,2.0);
-        for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)])if(Math.hypot(o.obj.position.x-to.x,o.obj.position.z-to.z)<=1.0)damage(o,dmg,'skill');}});return;}
 }
 let BIGI=0;
 const BIG_ORDER=['tornado','meteo','thunder'];
@@ -639,6 +628,7 @@ function cleave(unit,target){
   playOnce(unit,unit.cfg.anim,'Walking_A');
 }
 function damage(t,d,src){
+  if(t.kind==='block'){const bm=(CLASSES[G.cls]||{}).blockMul||1;d*=bm;} // 바바리안 상자·방벽 3배(개편안)
   const hpB=t.hp;t.hp-=d;t.hitT=0.12;
   if(t.kind==='foe'&&G.st)G.st.dmg[src||'basic']+=Math.min(d,Math.max(0,hpB));
   if(t.wgrp){const d2=Math.min(d,Math.max(0,hpB),t.wgrp.hp);t.wgrp.hp=Math.max(0,t.wgrp.hp-d2); // 오버킬 초과분이 무리 수치를 먼저 0으로 만들던 버그 수정
@@ -1018,7 +1008,7 @@ function update(dt){
     }else{p.mesh.position.addScaledVector(d.normalize(),step);
       if(p.efkH){try{p.efkH.setLocation(p.mesh.position.x,p.mesh.position.y,p.mesh.position.z);}catch(e){p.efkH=null;}}}
   }
-  // 포격·대형 마법 예약 이벤트
+  // 대형 마법 예약 이벤트
   if(G.q&&G.q.length)for(const ev of [...G.q]){ev.t-=dt;if(ev.step)ev.step(dt,ev);if(ev.t<=0){G.q.splice(G.q.indexOf(ev),1);if(ev.fn)ev.fn();}}
   // fx
   for(const f of [...fx]){f.t-=dt;
