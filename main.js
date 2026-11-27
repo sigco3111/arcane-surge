@@ -584,14 +584,14 @@ function fireSpecial(c,gr,t,from,tp,dmg,n){
   if(k==='flame'){
     const len=c.range;
     for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)]){const p=o.obj.position;const dz=from.z-p.z;if(dz<=0||dz>len)continue;if(Math.abs(p.x-aimX(p.z))>1.2)continue;damage(o,dmg,'skill');}
-    {const fz0=from.z-0.8,fxx=aimX(fz0);for(let i=0;i<4;i++)G.flameFx.push({t:-i*0.07,x:fxx,z0:fz0,len:Math.max(4,len-1),h:null,sc:0.13+0.02*i});}return;} // 화염 연출: 정적 배치 대신 4발 화구가 부대 앞에서 전방(-z)으로 실제 이동(매 프레임 위치 갱신) — 사용자 11-27 19:25 '불이 뒤로 발사'
+    {const fz0=from.z-0.8,fxx=aimX(fz0);for(let i=0;i<6;i++){G.flameFx.push({t:-i*0.05,x:fxx,z0:fz0,len:Math.max(4,len-1),sp:null,c:0xff8a2a,w:1.3});G.flameFx.push({t:-i*0.05,x:fxx,z0:fz0,len:Math.max(4,len-1),sp:null,c:0xffe08a,w:0.6});}}return;} // 화염 연출: 정적 배치 대신 4발 화구가 부대 앞에서 전방(-z)으로 실제 이동(매 프레임 위치 갱신) — 사용자 11-27 19:25 '불이 뒤로 발사'
   if(k==='beam'){
     const len=c.range;for(let i=0;i<5;i++){const zz=from.z-1.5-i*3.2;efkPlay('aura',new THREE.Vector3(aimX(zz),0.9,zz),0.16,2.4);}
     for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)]){const p=o.obj.position;const dz=from.z-p.z;if(dz<=0||dz>len)continue;if(Math.abs(p.x-aimX(p.z))>0.4)continue;damage(o,dmg,'skill');if(o.kind==='foe'&&!(G.sparkT>0)){efkPlay('thunder',new THREE.Vector3(p.x,0,p.z),0.1,2.2);G.sparkT=0.12;}}return;}
 }
 let BIGI=0;
 G.flameFx=[];
-function updFlameFx(dt){for(let i=G.flameFx.length-1;i>=0;i--){const f=G.flameFx[i];f.t+=dt;if(f.t<0)continue;if(!f.h){f.h=efkPlay('fireball',{x:f.x,y:0.6,z:f.z0},f.sc,1.0);if(!f.h){G.flameFx.splice(i,1);continue;}}const d=f.t*26;if(d>=f.len){try{f.h.stop();}catch(e){}G.flameFx.splice(i,1);continue;}try{f.h.setLocation(f.x,0.6,f.z0-d);}catch(e){G.flameFx.splice(i,1);}}}
+function updFlameFx(dt){for(let i=G.flameFx.length-1;i>=0;i--){const f=G.flameFx[i];f.t+=dt;if(f.t<0)continue;if(!f.sp){f.sp=glowSprite(f.c,f.w);f.sp.position.set(f.x,0.7,f.z0);scene.add(f.sp);}const d=f.t*30;if(d>=f.len){scene.remove(f.sp);if(f.sp.material)f.sp.material.dispose();G.flameFx.splice(i,1);continue;}const r=d/f.len;f.sp.position.set(f.x,0.7,f.z0-d);f.sp.material.opacity=0.9*(1-r*r);f.sp.scale.setScalar(f.w*(1+0.8*r));}} // 화염 연출: 이펙시어 FireBall(발사 원점에 잔상 폭발이 남아 후방으로 보임) 대신 직접 만든 발광 스프라이트가 전방으로만 이동
 const BIG_ORDER=['tornado','meteo','thunder'];
 const BIG_KO={tornado:'토네이도',meteo:'메테오',thunder:'낙뢰'};
 const BIG_DESC={tornado:'전방 끝까지 휩쓸며 적을 갈아냅니다',meteo:'전방으로 운석이 연속 낙하합니다',thunder:'전방 적들에게 연쇄로 번개가 내리칩니다'};
