@@ -117,7 +117,7 @@ const GROWTH={ // 탄수 초반 가속(사용자 07:44 "5명까지 탄 수"·매
 };
 const REF_S={Knight:[0,1,1,1,2,2,3,3,3,4,4,5,5,5,6,6,7],Rogue:[0,1,1,1,1,1,2,2,2,3,3,3,3,3,4,4,5],Mage:[0,1,1,1,1,1,2,2,2,2,2,3,3,3,4,4,5],Barbarian:[0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],Rogue_Hooded:[0,1,1,1,2,2,2,3,3,3,3,4,4,4,5,5,5]}; // 정규화 기준: 이전 탄수 곡선(총화력 유지용)
 // 실효 공격 배율 = 누적 배율을 스테이지 곡선 봉투로 상한(사용자 11-27 16:37 "후반으로 갈수록 너무 쉬워짐"): 성장은 스테이지 진행에 묶이고, 레벨/수정/단련은 봉투까지의 속도만 결정 — 후반 폭발적 격차 원천 차단
-const effMul=()=>Math.min(G.dmgMul,2.5*Math.pow(stageMul(G.stage),0.9));
+const effMul=()=>Math.min(G.dmgMul,2.2*Math.pow(stageMul(G.stage),0.9));
 function refDps(n){const m=Math.min(16,1+3*(n-1));const gr=growth('Knight',m);const c={...CLASSES.Knight,dmg:7.2}; // 구간 기준 화력: 나이트·구간별 기대 인원·봉투 배율의 기준 편성(보스 체력 산정 전용) // dmg는 개편 전 7.2 고정 — 나이트 강화(7.92)와 무관하게 보스 체력 직전 버전 유지(사용자 방침 11-27 18:37)
   const per=c.dmg*(2.2*Math.pow(stageMul(n),0.9))*(gr.dmg||1)*FORCE(m)*RANGE_DMG(c.range);
   const cyc=Math.max(0.08,c.cd*(gr.rate||1))+0.09*Math.max(0,(gr.burst||1)-1);
@@ -156,7 +156,7 @@ CLASSES.Glaive=_B('Barbarian',{kind:'boomerang',dmg:8,cd:1.4,range:10,color:0xff
 CLASSES.Sorcerer=_B('Mage',{kind:'chain',dmg:18,cd:1.1,range:10,color:0xbfe6ff,hitEfk:'hit',fxScale:0.14,fxSpeed:2.6}); // 기본 피해 9→18 두 배 (사용자 11-27 18:22)
 CLASSES.FrostLancer=_B('Knight',{kind:'lance',dmg:5,cd:0.8,range:15,color:0x7fd8ff,hitEfk:'cold',fxScale:0.11,fxSpeed:2.6});
 CLASSES.Pyro=_B('Mage',{kind:'flame',dmg:6,cd:0.3,range:16,color:0xff8a2a,hitEfk:'hit',fxScale:0.1,fxSpeed:2.6}); // 지속 화염 고화력(개편안): DPS 2배급 상향, 사거리도 16으로
-CLASSES.Prism=_B('Rogue_Hooded',{kind:'beam',dmg:2.2,cd:0.25,range:16,color:0xe6c8ff,hitEfk:'hit',fxScale:0.1,fxSpeed:2.6,homing:false});
+CLASSES.Prism=_B('Rogue_Hooded',{kind:'beam',dmg:3.08,cd:0.25,range:16,color:0xe6c8ff,hitEfk:'hit',fxScale:0.1,fxSpeed:2.6,homing:false});
 // 발사 간격 단축(사용자 11-26 19:59 "너무 띄엄띄엄" 정정): 원작 석궁 4발/초, 다른 무기 2.2~3.4발/초 수준으로 맞춤. 1발 피해는 간격 비율만큼 낮춰 초당 화력(DPS)은 유지
 const CD_NEW={Knight:0.25,Rogue:0.16,Rogue_Hooded:0.20,Mage:0.40,Barbarian:0.50,Ranger:0.40,Glaive:0.50,Sorcerer:0.40,FrostLancer:0.35}; // 로그 0.20→0.16: 초당 6발+ 연발(개편안), 발당 피해는 비율로 낮춰 DPS 유지
 for(const k in CD_NEW){const c=CLASSES[k];if(!c)continue;const r=CD_NEW[k]/c.cd;c.cd=CD_NEW[k];c.dmg*=r;}
@@ -397,7 +397,7 @@ async function spawnBlock(kind,x,z){
   }else{
     const cry=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.9,0.5),new THREE.MeshStandardMaterial({color:0x66e0ff,emissive:0x2288cc,emissiveIntensity:1.6,roughness:0.2}));
     cry.position.y=0.55;cry.rotation.y=Math.PI/4;grp.add(cry);
-    const tag=labelSprite('공격력 +4%','#9fe8ff',2.6);tag.position.y=2.1;grp.add(tag);
+    const tag=labelSprite('공격력 +2%','#9fe8ff',2.6);tag.position.y=2.1;grp.add(tag);
     grp.userData.tag=tag;
   }
   grp.add(discShadow(0.5));
@@ -746,8 +746,8 @@ function killUnit(t){
       convertSquad(t.obj.userData.rewardCls||'Knight'); // 전환: 비행탄 제거+전원 교체+1명은 convertSquad 내부
     }else{
       {const rp=ring(0x9fe8ff,1.0,0.8);rp.position.set(p.x,0.12,p.z);addFx(rp,0.6);} // 밝은 중심면 없는 얇은 고리 표시(비교빌드)
-      G.dmgMul*=1.04;G.st.crystals++; // 수정 배율 1.2→1.02: 스테이지당 1개×40회 누적이 후반 화력 폭증의 한 축이었음(11-27 재조정)
-      const l=labelSprite('공격력 +4%','#9fe8ff',2.4);l.position.copy(p).add(new THREE.Vector3(0,1,0));addFx(l,1.6);
+      G.dmgMul*=1.02;G.st.crystals++; // 수정 배율 1.2→1.02: 스테이지당 1개×40회 누적이 후반 화력 폭증의 한 축이었음(11-27 재조정)
+      const l=labelSprite('공격력 +2%','#9fe8ff',2.4);l.position.copy(p).add(new THREE.Vector3(0,1,0));addFx(l,1.6);
     }
     if(t.hpNum){t.obj.remove(t.hpNum.sprite);t.hpNum=null;}
     if(t.obj.userData.tag){t.obj.remove(t.obj.userData.tag);t.obj.userData.tag=null;} // 파괴된 블록의 보상 라벨 잔존 방지
