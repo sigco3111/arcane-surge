@@ -87,18 +87,18 @@ function sparkBurst(color,s=1){ // 링 없는 명중 스파크: 방사형 짧은
 
 // ---------- config (수치 전부 초안) ----------
 const CFG={
-  fwdSpeed:2.4, foeSpdMul:1.08, dragClamp:2.1, defLine:2.6, // 전진 2.3->2.7 + 적 속도 1.2배 (사용자 11-27: 아군·적군 모두 더 빠르게). 이전: 1.7->2.3(+35%), 2.6 시험에서 1스테이지 첫 파도 돌파 여유 7.1s->4.5s로 급변해 2.3 조정 후 재상향
-  lives:5, killsPerLevel:8, levelMul:1.15,
+  fwdSpeed:3.0, foeSpdMul:1.3, dragClamp:2.1, defLine:2.6, // 전진 2.4->3.0, 적 속도 1.08->1.30 (사용자 11-27 12:36: 아군·적군 모두 아직 느림)
+  lives:8, killsPerLevel:6, levelMul:1.15, // 생명 5→8·레벨업 완화(11-27 12:36: 화력 너프+적 증가·가속에 맞춰 원작식 소모전 여유 확보)
   stageLen:55,
   bossEvery:5, // 5스테이지마다 보스 / 지역(맵 테마)은 보스 이후 바뀜
   finalStage:40, // 8지역 x 5구간 = 40스테이지: 최종 보스(8번째) 격파가 클리어 조건(사용자 승인 11-27)
 };
 const FINAL_BOSS_IDX=CFG.finalStage/CFG.bossEvery;
-function stageMul(n){return n<=1?1:1.5*Math.pow(1.3,Math.min(n,12)-2)*Math.pow(1.15,Math.max(0,n-12));} // 적 체력 배율: 1스테이지=1, 2스테이지부터 1.5배로 뛰고 이후 1.3배씩(12 이후 1.15배씩)
+function stageMul(n){return n<=1?1:0.42*Math.pow(1.18,Math.min(n,12)-2)*Math.pow(1.09,Math.max(0,n-12));} // 11-27 12:36 사거리 너프(화력 약 절반)에 맞춰 성장 곡선 하향 // 적 체력 배율: 1스테이지=1, 2스테이지부터 1.5배로 뛰고 이후 1.3배씩(12 이후 1.15배씩)
 function blockMul(n){return Math.pow(1.3,Math.min(n,12)-1)*Math.pow(1.15,Math.max(0,n-12));}
 const isBossStage=n=>n>0&&n%CFG.bossEvery===0;
 const CLASSES={
-  Knight:{u:'Knight.glb',s:0.47,dmg:6,cd:0.9,range:9.5,kind:'bolt',color:0xffe27a,hitEfk:'hit',fxScale:0.22,fxSpeed:2.1,anim:'1H_Melee_Attack_Stab',w:{slot:'handslotr',u:'weapons/spear_A.gltf'}},
+  Knight:{u:'Knight.glb',s:0.47,dmg:7.2,cd:0.9,range:9.5,kind:'bolt',color:0xffe27a,hitEfk:'hit',fxScale:0.22,fxSpeed:2.1,anim:'1H_Melee_Attack_Stab',w:{slot:'handslotr',u:'weapons/spear_A.gltf'}},
   Barbarian:{u:'Barbarian.glb',s:0.40,dmg:14,cd:1.25,range:9.5,kind:'wave',color:0xff7a2a,hitEfk:'hit',fxScale:0.1,fxSpeed:2.4,anim:'2H_Melee_Attack_Spin',blockMul:3}, // 상자·방벽 파괴 전담(개편안): 블록 피해 3배. hit로 교체: ember 잔여 화염이 다중 명중 피크에서 누적되는 문제 차단
   Rogue:{u:'Rogue.glb',s:0.47,dmg:4,cd:0.55,range:10.5,kind:'shard',color:0x9fdcff,hitEfk:'cold',fxScale:0.11,fxSpeed:2.6,anim:'2H_Ranged_Shoot',w:{slot:'handslotl',u:'weapons/bow_A_withString.gltf'}},
   Mage:{u:'Mage.glb',s:0.38,dmg:9,cd:1.15,range:10.5,kind:'fire',color:0xff7a2a,hitEfk:'flame',fxScale:0.11,fxSpeed:2.8,anim:'Spellcast_Shoot',w:{slot:'handslotr',u:'weapons/wand.gltf'}},
@@ -120,7 +120,7 @@ function fxTier(){const p=G.dmgMul*(growth(G.cls,G.allies.length).dmg||1);return
 const ENV={Knight:{w:1.2,r:22},Rogue:{w:1.8,r:20},Mage:{w:3.2,r:20},Barbarian:{w:3.6,r:18},Rogue_Hooded:{w:2.0,r:60},
   Ranger:{w:3.0,r:16,l:0.6},Glaive:{w:1.6,r:18,l:0.3},Sorcerer:{w:3.0,r:20,l:0.7},FrostLancer:{w:1.0,r:24,l:0.1},Pyro:{w:2.4,r:16,l:1.2},Prism:{w:0.8,r:40,l:0.4}}; // 병종 개편(사용자 승인 11-27 09:59): 전원 충분한 사거리(16+), 차별화는 공격 방식으로. l=조준 레인 반폭 고정(없으면 w/2−폭발/파동). 연쇄·폭발은 이 레인 밖으로 조준선±1.5/반경 1.0까지만
 for(const k in ENV)if(CLASSES[k])CLASSES[k].range=ENV[k].r;
-const RANGE_DMG=r=>Math.max(0.15,Math.min(1,Math.pow(22/Math.max(22,r),2))); // 사용자 11-27: 사거리가 길수록 데미지를 훨씬 낮춤(22 기준 제곱 감쇠: 프리즘40→0.30, 후드60→0.15, 근·중거리 유지) — 가값, 플레이테스트 조정 예정
+const RANGE_DMG=r=>r<20?1:0.5*Math.pow(20/r,2); // 사용자 11-27 12:36(+정정): 로그(20) 이상 사거리는 현재의 절반 이하, 길수록 제곱으로 더 약하게 — 로그·메이지·소서러20→0.50, 나이트22→0.41, 프로스트랜서24→0.35, 프리즘40→0.125, 후드로그60→0.056, 근접 16~18 유지
 function growth(cls,n){const g={...GROWTH_DEF};for(const [k,v] of (GROWTH[cls]||[]))if(n>=k)Object.assign(g,v);
   const e=ENV[cls];if(e){g.aoe=Math.min(g.aoe||0,Math.max(0,e.w/2-0.7));g.wave=Math.max(g.wave||0,e.r);g.waveW=Math.min(g.waveW,(e.w/2-0.35)/0.55);} // 개편: 파동 도달 거리도 사거리까지(이전엔 성장치 5~12에 묶여 교전 사거리가 사실상 그대로였음)
   {const k=(CLASSES[cls]||{}).kind;if(k!=='wave'&&k!=='spread'&&!(typeof SPECIAL_KINDS!=='undefined'&&SPECIAL_KINDS.has(k)))g.s=Math.max(g.s,Math.min(n,9));} // 보이는 대원 수 = 발사 줄 수(최대 9), 발당 피해는 줄 수로 나뉘어 총 화력 불변
@@ -339,7 +339,7 @@ async function spawnFoe(type,x,z,isBoss=false,wave){
     const gm=await loadG(A+BOSS.u),gb=await loadG(A+bdef.u);const refH=bboxH(gm.scene)*BOSS.s;
     f={...BOSS,u:bdef.u,hp:BOSS.hp*(bdef.hpm||1),s:refH*bdef.m/bboxH(gb.scene),hy:refH*bdef.m+0.8};}
   const rf=regionFoes(stg0); // 지역별 적 보정(조합은 stageLayout이 결정)
-  const hscale=(stg0===1?0.52:stageMul(stg0))*(isBoss?cycleHp():rf.hp*cycleHp()); // 기본 체력 +30% 반영: 1스테이지 계수 0.75→0.52로 실효 난이도 유지, 2스테이지부터 상승 곡선 그대로
+  const hscale=(stg0===1?0.16:stageMul(stg0))*(isBoss?cycleHp():rf.hp*cycleHp()); // 기본 체력 +30% 반영: 1스테이지 계수 0.52→0.16(11-27 12:36 사거리 너프로 아군 화력 반감 — 원작처럼 초반 물량은 종잇장 체력으로 쓸어내는 손맛), 2스테이지부터 상승 곡선 그대로
   const sscale=(isBoss?1:Math.min(1.5,1+0.07*(stg0-1))*(stg0===1?0.85:1))*(isBoss?1:rf.spd)*cycleSpd(); // 원작 참고: 단계가 갈수록 적 이동 가속
   const {root,anims}=await makeModel(A+f.u,f.s,isBoss?(bdef.tint||null):[1.05,0.8,0.8]);
   root.position.set(x,0,z);root.rotation.y=0;
@@ -396,39 +396,46 @@ async function spawnBlock(kind,x,z){
 // ---------- stage layout ----------
 function stageLayout(n){
   const L=[];const z0=-CFG.stageLen*(n-1);
+  const R=(a,b)=>a+Math.random()*(b-a); // 진행 랜덤화(사용자 11-27 12:36 "항상 같은 패턴"): 파도 위치·무리 구성·보상 배치가 매 판 달라짐
   if(!isBossStage(n)){
     const foeTypes=regionFoes(n).mix; // 지역별 적 조합(11-27 확장)
-    [14,19.5,25,30.5,36,41.5,47,52.5,58].forEach((dz,w)=>{ // 파도 8->10개·5 간격(사용자 11-27: 적이 드문드문 — 더 자주 더 많이) — 첫 파도 12부터, 마지막 파도는 다음 구간 초반까지 이어짐
-      const cnt=n===1?2+(w%2):Math.min(10,2+n); // 1스테이지는 파도당 2~3마리, 2스테이지부터 늘어남(상한 8->12)
-      const cx=[-1.4,1.6,-0.6,1.2,-1.8,0.9,-1.2,1.7,0.2,-0.9][w%10]; // 원작처럼 파도가 통로 이곳저곳에 뭉쳐 나옴 — 가만히 서 있으면 맞지 않는 파도가 생김
+    const waves=n===1?9:10+Math.floor(R(0,3)); // 파도 수도 가변
+    let dz=R(11,14);
+    for(let w=0;w<waves;w++){
+      const rush=n>1&&Math.random()<0.2; // 25% 확률 속공 무리(원작 tide의 러너 팩)
+      const cnt=(n===1?3+(w%2):Math.min(16,2+n))+Math.floor(R(0,3))+(rush?3:0); // 무리 크기 가변 — 원작 방향으로 더 많이 뭉침(사용자 11-27 12:36)
+      const cx=R(-1.8,1.8),hw=R(0.5,1.1); // 통로 이곳저곳에 뭉쳐 등장
       for(let i=0;i<cnt;i++){
-        const t=foeTypes[(w+i+n)%foeTypes.length];
-        L.push({dz:dz+ (i%2)*1.6, type:'foe',foe:t,x:cx+((i*47)%10)/10*1.4-0.7,wave:w});
+        const t=rush?(Math.random()<0.5?'Minion':'Blob'):foeTypes[Math.floor(Math.random()*foeTypes.length)];
+        L.push({dz:dz+R(0,1.2),type:'foe',foe:t,x:Math.max(-2,Math.min(2,cx+R(-hw,hw))),wave:w});
       }
-    });
-    L.push({dz:10,type:'chest',x:-1.5});
-    L.push({dz:22,type:'crystal',x:-1.6});
-    L.push({dz:32,type:'chest',x:1.6}); // 상자 2개/구간으로 보상 간격 축소
-    L.push({dz:44,type:'captive',x:n%2?1.7:-1.7}); // 구간당 감옥 1개, 통로 가장자리(회피 가능)
+      dz+=R(4.0,5.2); // 파도 간격도 가변(원작: 스폰 간격에 ±20% 잡음)
+    }
+    const sx=()=>(Math.random()<0.5?-1:1)*R(1.2,1.8); // 보상 위치·순서 간격 랜덤
+    L.push({dz:R(6,9),type:'chest',x:sx()}); // 첫 상자를 앞당겨 초반 병력 보강
+    L.push({dz:R(19,26),type:'crystal',x:sx()});
+    L.push({dz:R(30,36),type:'chest',x:sx()});
+    L.push({dz:R(41,47),type:'captive',x:(Math.random()<0.5?-1:1)*R(1.5,1.8)});
   }else{
-    const rf=regionFoes(n).mix,pick=k=>rf[k%rf.length]; // 보스 구간 잔졸도 지역 조합을 따름
-    L.push({dz:8,type:'foe',foe:pick(0),x:0.9,wave:0});
-    L.push({dz:11,type:'foe',foe:pick(1),x:1.8,wave:0});
-    L.push({dz:15,type:'foe',foe:pick(2),x:1.2,wave:1});
-    L.push({dz:19,type:'foe',foe:pick(1),x:0.6,wave:1});
-    L.push({dz:21,type:'foe',foe:pick(3),x:1.7,wave:2});
-    L.push({dz:23,type:'foe',foe:pick(1),x:0.8,wave:2});
-    L.push({dz:25,type:'boss',x:0,wave:'boss'});
-    L.push({dz:33,type:'foe',foe:pick(1),x:1.3,wave:3}); // 보스 이후 빈 구간 제거(11-27): 격파 후에도 흐름이 이어지도록 잔여 파도 2줄
-    L.push({dz:34,type:'foe',foe:pick(0),x:-1.2,wave:3});
-    L.push({dz:38,type:'foe',foe:pick(2),x:0.4,wave:4});
-    L.push({dz:39,type:'foe',foe:pick(1),x:-1.6,wave:4});
-    L.push({dz:46,type:'foe',foe:pick(0),x:-0.9,wave:5}); // 보스 결전 중에도 잔졸이 계속 도래 — 장기전 중 처치 공백(측정 최대 12초) 방지
-    L.push({dz:47,type:'foe',foe:pick(1),x:1.5,wave:5});
-    L.push({dz:51,type:'foe',foe:pick(2),x:-1.4,wave:6});
-    L.push({dz:52,type:'foe',foe:pick(4),x:0.8,wave:6});
-    L.push({dz:42,type:'chest',x:1.6}); // 보스 격파 보상: 이어서 계속 진행
-    L.push({dz:51,type:'captive',x:-1.7});
+    const rf=regionFoes(n).mix,pick=()=>rf[Math.floor(Math.random()*rf.length)]; // 보스 구간 잔졸 구성도 랜덤
+    const j=d=>d+R(-1.5,1.5),jx=x=>Math.max(-2,Math.min(2,x+R(-0.5,0.5)));
+    L.push({dz:j(8),type:'foe',foe:pick(),x:jx(0.9),wave:0});
+    L.push({dz:j(11),type:'foe',foe:pick(),x:jx(1.8),wave:0});
+    L.push({dz:j(15),type:'foe',foe:pick(),x:jx(1.2),wave:1});
+    L.push({dz:j(19),type:'foe',foe:pick(),x:jx(0.6),wave:1});
+    L.push({dz:j(21),type:'foe',foe:pick(),x:jx(1.7),wave:2});
+    L.push({dz:j(23),type:'foe',foe:pick(),x:jx(0.8),wave:2});
+    L.push({dz:25,type:'boss',x:0,wave:'boss'}); // 보스 본체 위치는 고정(결전 설계 유지)
+    L.push({dz:j(33),type:'foe',foe:pick(),x:jx(1.3),wave:3});
+    L.push({dz:j(34),type:'foe',foe:pick(),x:jx(-1.2),wave:3});
+    L.push({dz:j(38),type:'foe',foe:pick(),x:jx(0.4),wave:4});
+    L.push({dz:j(39),type:'foe',foe:pick(),x:jx(-1.6),wave:4});
+    L.push({dz:j(46),type:'foe',foe:pick(),x:jx(-0.9),wave:5});
+    L.push({dz:j(47),type:'foe',foe:pick(),x:jx(1.5),wave:5});
+    L.push({dz:j(51),type:'foe',foe:pick(),x:jx(-1.4),wave:6});
+    L.push({dz:j(52),type:'foe',foe:pick(),x:jx(0.8),wave:6});
+    L.push({dz:j(42),type:'chest',x:jx(1.6)});
+    L.push({dz:j(51),type:'captive',x:jx(-1.7)});
   }
   L.forEach(e=>e.z=z0-e.dz);
   return L;
