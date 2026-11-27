@@ -150,9 +150,9 @@ function drawCaptiveCls(){ // 구출 병종: 판(페이지 로드)마다 셔플�
 const EXTRA_CYCLE=['Rogue_Hooded','Mage','Knight','Barbarian','Ranger','Glaive','Sorcerer','FrostLancer','Pyro','Prism'];
 // ---- 7개 신규 병종(제안서 12종 중 신규): 모델은 기존 5종 재사용(무기·색만 다름), 공격 방식은 고유 ----
 const _B=(b,o)=>({...CLASSES[b],...o});
-CLASSES.Ranger=_B('Rogue',{kind:'spread',dmg:7,cd:1.0,range:16,color:0x8fe08a,hitEfk:'hit',fxScale:0.11,fxSpeed:2.6}); // maxD 제거: 개편 사거리 16에 맞춰 탄 도달 거리도 연장
+CLASSES.Ranger=_B('Rogue',{kind:'spread',dmg:8,cd:1.0,range:16,color:0x8fe08a,hitEfk:'hit',fxScale:0.11,fxSpeed:2.6}); // 기본 피해 7→8 (사용자 11-27 17:51 승인) // maxD 제거: 개편 사거리 16에 맞춰 탄 도달 거리도 연장
 CLASSES.Glaive=_B('Barbarian',{kind:'boomerang',dmg:8,cd:1.4,range:10,color:0xffc84a,hitEfk:'hit',fxScale:0.12,fxSpeed:2.4,anim:'2H_Melee_Attack_Slice'});
-CLASSES.Sorcerer=_B('Mage',{kind:'chain',dmg:6,cd:1.1,range:10,color:0xbfe6ff,hitEfk:'hit',fxScale:0.14,fxSpeed:2.6});
+CLASSES.Sorcerer=_B('Mage',{kind:'chain',dmg:9,cd:1.1,range:10,color:0xbfe6ff,hitEfk:'hit',fxScale:0.14,fxSpeed:2.6}); // 기본 피해 6→9 (사용자 11-27 17:51 승인)
 CLASSES.FrostLancer=_B('Knight',{kind:'lance',dmg:5,cd:0.8,range:15,color:0x7fd8ff,hitEfk:'cold',fxScale:0.11,fxSpeed:2.6});
 CLASSES.Pyro=_B('Mage',{kind:'flame',dmg:6,cd:0.3,range:16,color:0xff8a2a,hitEfk:'hit',fxScale:0.1,fxSpeed:2.6}); // 지속 화염 고화력(개편안): DPS 2배급 상향, 사거리도 16으로
 CLASSES.Prism=_B('Rogue_Hooded',{kind:'beam',dmg:2.2,cd:0.25,range:16,color:0xe6c8ff,hitEfk:'hit',fxScale:0.1,fxSpeed:2.6,homing:false});
@@ -353,7 +353,7 @@ async function spawnFoe(type,x,z,isBoss=false,wave){
     f={...BOSS,u:bdef.u,hp:Math.max(300,Math.round(refDps(stg0)*0.6*3.2*Math.sqrt(bdef.hpm||1))),s:refH*bdef.m/bboxH(gb.scene),hy:refH*bdef.m+0.8};} // 보스 체력 = 구간 기준 화력(의 60%)×3.2초: 스테이지 고정값이라 성장·병종 선택이 결전 시간 단축으로 체감됨(기준 편성 약 3.2초, 돌파 창구 약 5초, 11-27 재조정)
   const rf=regionFoes(stg0); // 지역별 적 보정(조합은 stageLayout이 결정)
   const hscale=(isBoss?1:(stg0===1?0.31:stg0===2?0.65:stageMul(stg0)))*(isBoss?cycleHp():rf.hp*cycleHp()); // 보스는 refDps 기준 스케일이라 구간 곡선 미적용(회차 보정만) // 기본 체력 +30% 반영: 1스테이지 계수 0.52→0.31(=구 곡선×0.6: 사거리 너프 실효 보존 기준), 2스테이지부터 상승 곡선 그대로
-  const sscale=(isBoss?1:Math.min(1.9,1+0.07*(stg0-1))*(stg0===1?0.85:1))*(isBoss?1:rf.spd)*cycleSpd(); // 원작 참고: 단계가 갈수록 적 이동 가속 — 속도 상한 1.5→1.9: 체력 스펀지가 아니라 압박으로 후반 긴장 유지(11-27 16:37)
+  const sscale=(isBoss?1:Math.min(1.65,1+0.055*(stg0-1))*(stg0===1?0.85:1))*(isBoss?1:rf.spd)*cycleSpd(); // 원작 참고: 단계가 갈수록 적 이동 가속 — 상한 1.9→1.65·가속 0.07→0.055로 소폭 완화(사용자 11-27 17:51 승인)
   const {root,anims}=await makeModel(A+f.u,f.s,isBoss?(bdef.tint||null):[1.05,0.8,0.8]);
   root.position.set(x,0,z);root.rotation.y=0;
   const unit={kind:'foe',type,isBoss,bossIdx,bossName:bdef?bdef.name:null,hp:Math.round(f.hp*hscale),maxHp:Math.round(f.hp*hscale),cfg:f,spd:f.spd*sscale*(CFG.foeSpdMul||1),obj:root,hitT:0,...makeMixer(root,anims)};
@@ -415,7 +415,7 @@ function stageLayout(n){
     const waves=n===1?9:11+Math.floor(n/6)+Math.floor(R(0,3)); // 파도 수도 스테이지와 함께 증가(사용자 11-27 16:37 "2스테이지부터 매 스테이지 적 증가")
     let dz=n===1?R(11,14):R(13,16);
     for(let w=0;w<waves;w++){
-      const rush=n>1&&Math.random()<Math.min(0.35,0.16+0.005*n); // 속공 무리 확률도 단계 상승(후반 압박)
+      const rush=n>1&&Math.random()<Math.min(0.28,0.16+0.005*n); // 속공 확률 상한 0.35→0.28 (사용자 11-27 17:51 승인) // 속공 무리 확률도 단계 상승(후반 압박)
       const cnt=Math.min(26,1+n+Math.floor(w/3))+Math.floor(R(0,3))+(rush?3:0); // 무리 크기 상한 16→26: 기존엔 12단계부터 물량 증가가 멈춰 후반이 평평해짐(사용자 11-27 16:37) — 무리 크기 가변·파도가 갈수록 커지는 도입 곡선(원작 방향으로 더 많이 뭉침 11-27 12:36)
       const cx=R(-1.8,1.8),hw=R(0.5,1.1); // 통로 이곳저곳에 뭉쳐 등장
       for(let i=0;i<cnt;i++){
