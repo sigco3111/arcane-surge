@@ -88,7 +88,7 @@ function sparkBurst(color,s=1){ // 링 없는 명중 스파크: 방사형 짧은
 // ---------- config (수치 전부 초안) ----------
 const CFG={
   fwdSpeed:3.5, foeSpdMul:1.3, dragClamp:2.1, defLine:2.6, // 전진 2.4->3.0->3.5 (사용자 11-27 12:36 양쪽 가속 + 14:15 "이동은 좀더 빨라도"), 적 속도 1.30 유지
-  lives:8, killsPerLevel:6, levelMul:1.15, // 생명 5→8·레벨업 완화(11-27 12:36: 화력 너프+적 증가·가속에 맞춰 원작식 소모전 여유 확보)
+  lives:8, lvK0:6, lvStep:3, levelMul:1.05, // 생명 8 유지 · 성장 둔화(사용자 11-27 16:37 "강해지는 속도가 좀 줄던지"): 필요 처치가 6,9,12…로 늘고 배율 1.15→1.07 — 기존엔 후반 수백~수천 레벨 ×1.15로 배율이 10^50배 이상 폭증해 후반이 무의미해짐
   stageLen:55,
   bossEvery:5, // 5스테이지마다 보스 / 지역(맵 테마)은 보스 이후 바뀜
   finalStage:40, // 8지역 x 5구간 = 40스테이지: 최종 보스(8번째) 격파가 클리어 조건(사용자 승인 11-27)
@@ -115,7 +115,13 @@ const GROWTH={ // 탄수 초반 가속(사용자 07:44 "5명까지 탄 수"·매
  Rogue_Hooded:[[4,{s:2}],[5,{burst:2}],[6,{s:3,rate:0.92}],[7,{fan:8}],[8,{rate:0.85}],[9,{s:4,dmg:1.15}],[10,{aux:1}],[11,{fan:10}],[12,{s:5,aux:2}],[13,{rate:0.72}],[14,{dmg:1.2,burst:3}],[15,{rate:0.62,s:6}],[16,{aux:3}]], // 혼합(가값)
 };
 const REF_S={Knight:[0,1,1,1,2,2,3,3,3,4,4,5,5,5,6,6,7],Rogue:[0,1,1,1,1,1,2,2,2,3,3,3,3,3,4,4,5],Mage:[0,1,1,1,1,1,2,2,2,2,2,3,3,3,4,4,5],Barbarian:[0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],Rogue_Hooded:[0,1,1,1,2,2,2,3,3,3,3,4,4,4,5,5,5]}; // 정규화 기준: 이전 탄수 곡선(총화력 유지용)
-function fxTier(){const p=G.dmgMul*(growth(G.cls,G.allies.length).dmg||1);return p>=3?3:p>=1.6?2:1;} // 성장형 타격FX 단계(가값 임계치 — 단계 비교 검증 후 조정)
+// 실효 공격 배율 = 누적 배율을 스테이지 곡선 봉투로 상한(사용자 11-27 16:37 "후반으로 갈수록 너무 쉬워짐"): 성장은 스테이지 진행에 묶이고, 레벨/수정/단련은 봉투까지의 속도만 결정 — 후반 폭발적 격차 원천 차단
+const effMul=()=>Math.min(G.dmgMul,2.2*Math.pow(stageMul(G.stage),0.9));
+function refDps(n){const m=Math.min(16,1+3*(n-1));const gr=growth('Knight',m);const c=CLASSES.Knight; // 구간 기준 화력: 나이트·구간별 기대 인원·봉투 배율의 기준 편성(보스 체력 산정 전용)
+  const per=c.dmg*(2.2*Math.pow(stageMul(n),0.9))*(gr.dmg||1)*FORCE(m)*RANGE_DMG(c.range);
+  const cyc=Math.max(0.08,c.cd*(gr.rate||1))+0.09*Math.max(0,(gr.burst||1)-1);
+  return per*(gr.burst||1)/cyc;}
+function fxTier(){const p=effMul()*(growth(G.cls,G.allies.length).dmg||1);return p>=3?3:p>=1.6?2:1;} // 성장형 타격FX 단계(가값 임계치 — 단계 비교 검증 후 조정)
 // 병종별 고정 총 타격 폭/사거리(제안서): 폭에는 폭발 반경·파동 폭이 포함, 성장해도 이 상자를 넘지 않음
 const ENV={Knight:{w:1.2,r:22},Rogue:{w:1.8,r:20},Mage:{w:3.2,r:20},Barbarian:{w:3.6,r:18},Rogue_Hooded:{w:2.0,r:60},
   Ranger:{w:3.0,r:16,l:0.6},Glaive:{w:1.6,r:18,l:0.3},Sorcerer:{w:3.0,r:20,l:0.7},FrostLancer:{w:1.0,r:24,l:0.1},Pyro:{w:2.4,r:16,l:1.2},Prism:{w:0.8,r:40,l:0.4}}; // 병종 개편(사용자 승인 11-27 09:59): 전원 충분한 사거리(16+), 차별화는 공격 방식으로. l=조준 레인 반폭 고정(없으면 w/2−폭발/파동). 연쇄·폭발은 이 레인 밖으로 조준선±1.5/반경 1.0까지만
@@ -171,6 +177,7 @@ window.__setTS=v=>{TS=v;}; // 시연: 실행 중 배율 변경 훅
 window.__convert=c=>convertSquad(c); // 시연: 전환 훅
 window.__setN=async n=>{n=Math.max(1,Math.min(16,n|0));while(G.allies.length>n){const u=G.allies.pop();G.squad.remove(u.obj);}while(G.allies.length<n)await spawnAlly(G.cls);}; // 테스트: 인원 수 직접 설정
 window.__resetMul=()=>{G.dmgMul=1;}; // 테스트: 공격력 배율 초기화
+window.__setMul=v=>{G.dmgMul=v;return 1;}; // 검증: 배율 직접 설정
 window.__boltDemo=(spd=6)=>{ // 시연: 실제 탄체 메시의 저속 비행 확인용(모양·궤적 전용)
   const mk=(kind,color,x,z)=>{const grp=new THREE.Group();let mesh;
     if(kind==='shard'){mesh=new THREE.Mesh(new THREE.ConeGeometry(0.09,1.8,6),new THREE.MeshBasicMaterial({color}));mesh.rotation.x=-Math.PI/2;}
@@ -207,7 +214,7 @@ const bboxH=o=>{const b=new THREE.Box3().setFromObject(o);return Math.max(0.01,b
 
 // ---------- state ----------
 const G={state:'title',stage:1,lives:CFG.lives,kills:0,level:1,dmgMul:1,statV:0,statB:0,statH:0,statX:0,
-  squad:null,cls:'Knight',allies:[],enemies:[],blocks:[],projs:[],stageZ0:0,spawned:new Set(),extra:0,waveGrps:{},vcd:0,burstLeft:0,burstT:0,fxT:0,combo:0,comboT:0,
+  squad:null,cls:'Knight',allies:[],enemies:[],blocks:[],projs:[],stageZ0:0,spawned:new Set(),extra:0,waveGrps:{},vcd:0,burstLeft:0,burstT:0,fxT:0,combo:0,comboT:0,lvKills:0,nextBig:20,waveGate:0.8,
   layout:[],boss:null,x:0,q:[]};
 const BEST_KEY='arcaneSurgeBestDistance_v1';
 let BEST=0;try{BEST=parseInt(localStorage.getItem(BEST_KEY))||0;}catch(e){}
@@ -343,10 +350,10 @@ async function spawnFoe(type,x,z,isBoss=false,wave){
   let f=isBoss?BOSS:FOES[type];let bdef=null;let bossIdx=0;
   if(isBoss){bossIdx=Math.floor(stg0/CFG.bossEvery);bdef=BOSSES[(bossIdx-1+BOSSES.length*100)%BOSSES.length];
     const gm=await loadG(A+BOSS.u),gb=await loadG(A+bdef.u);const refH=bboxH(gm.scene)*BOSS.s;
-    f={...BOSS,u:bdef.u,hp:BOSS.hp*(bdef.hpm||1),s:refH*bdef.m/bboxH(gb.scene),hy:refH*bdef.m+0.8};}
+    f={...BOSS,u:bdef.u,hp:Math.max(300,Math.round(refDps(stg0)*0.75*3.2*Math.sqrt(bdef.hpm||1))),s:refH*bdef.m/bboxH(gb.scene),hy:refH*bdef.m+0.8};} // 보스 체력 = 구간 기준 화력(의 75%)×3.2초: 스테이지 고정값이라 성장·병종 선택이 그대로 결전 시간 단축으로 체감됨(기준 편성이면 약 4초, 돌파 창구 약 5초)(11-27 16:37)
   const rf=regionFoes(stg0); // 지역별 적 보정(조합은 stageLayout이 결정)
-  const hscale=(stg0===1?0.31:stageMul(stg0))*(isBoss?cycleHp():rf.hp*cycleHp()); // 기본 체력 +30% 반영: 1스테이지 계수 0.52→0.31(=구 곡선×0.6: 사거리 너프 실효 보존 기준), 2스테이지부터 상승 곡선 그대로
-  const sscale=(isBoss?1:Math.min(1.5,1+0.07*(stg0-1))*(stg0===1?0.85:1))*(isBoss?1:rf.spd)*cycleSpd(); // 원작 참고: 단계가 갈수록 적 이동 가속
+  const hscale=(isBoss?1:(stg0===1?0.31:stageMul(stg0)))*(isBoss?cycleHp():rf.hp*cycleHp()); // 보스는 refDps 기준 스케일이라 구간 곡선 미적용(회차 보정만) // 기본 체력 +30% 반영: 1스테이지 계수 0.52→0.31(=구 곡선×0.6: 사거리 너프 실효 보존 기준), 2스테이지부터 상승 곡선 그대로
+  const sscale=(isBoss?1:Math.min(1.9,1+0.07*(stg0-1))*(stg0===1?0.85:1))*(isBoss?1:rf.spd)*cycleSpd(); // 원작 참고: 단계가 갈수록 적 이동 가속 — 속도 상한 1.5→1.9: 체력 스펀지가 아니라 압박으로 후반 긴장 유지(11-27 16:37)
   const {root,anims}=await makeModel(A+f.u,f.s,isBoss?(bdef.tint||null):[1.05,0.8,0.8]);
   root.position.set(x,0,z);root.rotation.y=0;
   const unit={kind:'foe',type,isBoss,bossIdx,bossName:bdef?bdef.name:null,hp:Math.round(f.hp*hscale),maxHp:Math.round(f.hp*hscale),cfg:f,spd:f.spd*sscale*(CFG.foeSpdMul||1),obj:root,hitT:0,...makeMixer(root,anims)};
@@ -389,7 +396,7 @@ async function spawnBlock(kind,x,z){
   }else{
     const cry=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.9,0.5),new THREE.MeshStandardMaterial({color:0x66e0ff,emissive:0x2288cc,emissiveIntensity:1.6,roughness:0.2}));
     cry.position.y=0.55;cry.rotation.y=Math.PI/4;grp.add(cry);
-    const tag=labelSprite('공격력 +20%','#9fe8ff',2.6);tag.position.y=2.1;grp.add(tag);
+    const tag=labelSprite('공격력 +5%','#9fe8ff',2.6);tag.position.y=2.1;grp.add(tag);
     grp.userData.tag=tag;
   }
   grp.add(discShadow(0.5));
@@ -405,11 +412,11 @@ function stageLayout(n){
   const R=(a,b)=>a+Math.random()*(b-a); // 진행 랜덤화(사용자 11-27 12:36 "항상 같은 패턴"): 파도 위치·무리 구성·보상 배치가 매 판 달라짐
   if(!isBossStage(n)){
     const foeTypes=regionFoes(n).mix; // 지역별 적 조합(11-27 확장)
-    const waves=n===1?9:10+Math.floor(R(0,3)); // 파도 수도 가변
+    const waves=n===1?9:10+Math.floor(n/6)+Math.floor(R(0,3)); // 파도 수도 스테이지와 함께 증가(사용자 11-27 16:37 "2스테이지부터 매 스테이지 적 증가")
     let dz=n===1?R(11,14):R(13,16);
     for(let w=0;w<waves;w++){
-      const rush=n>1&&Math.random()<0.2; // 25% 확률 속공 무리(원작 tide의 러너 팩)
-      const cnt=Math.min(16,1+n+Math.floor(w/3))+Math.floor(R(0,3))+(rush?3:0); // 무리 크기 가변·파도가 갈수록 커지는 도입 곡선(모든 스테이지) — 원작 방향으로 더 많이 뭉침(사용자 11-27 12:36)
+      const rush=n>1&&Math.random()<Math.min(0.35,0.16+0.005*n); // 속공 무리 확률도 단계 상승(후반 압박)
+      const cnt=Math.min(26,1+n+Math.floor(w/3))+Math.floor(R(0,3))+(rush?3:0); // 무리 크기 상한 16→26: 기존엔 12단계부터 물량 증가가 멈춰 후반이 평평해짐(사용자 11-27 16:37) — 무리 크기 가변·파도가 갈수록 커지는 도입 곡선(원작 방향으로 더 많이 뭉침 11-27 12:36)
       const cx=R(-1.8,1.8),hw=R(0.5,1.1); // 통로 이곳저곳에 뭉쳐 등장
       for(let i=0;i<cnt;i++){
         const t=rush?(Math.random()<0.5?'Minion':'Blob'):foeTypes[Math.floor(Math.random()*foeTypes.length)];
@@ -439,6 +446,7 @@ function stageLayout(n){
     L.push({dz:j(47),type:'foe',foe:pick(),x:jx(1.5),wave:5});
     L.push({dz:j(51),type:'foe',foe:pick(),x:jx(-1.4),wave:6});
     L.push({dz:j(52),type:'foe',foe:pick(),x:jx(0.8),wave:6});
+    const extraF=Math.floor(n/8);for(let w=0;w<7;w++)for(let i=0;i<extraF;i++)L.push({dz:j(10+w*6),type:'foe',foe:pick(),x:jx((i%2?1:-1)*(0.5+0.4*i)),wave:w}); // 보스 구간 잔졸도 단계당 증원(11-27 16:37)
     if(Math.random()<0.5){L.push({dz:j(42),type:'chest',x:jx(1.6)});L.push({dz:j(51),type:'captive',x:jx(-1.7)});}
     else{L.push({dz:j(42),type:'captive',x:jx(-1.7)});L.push({dz:j(51),type:'chest',x:jx(1.6)});} // 보스 구간 보상 순서도 반반으로
   }
@@ -447,6 +455,7 @@ function stageLayout(n){
 }
 function setStage(n){
   G.stage=n;G.layout=stageLayout(n);G.spawned=new Set();G.stageZ0=-CFG.stageLen*(n-1);G.waveCur=-1;G.waveT=-1; // -1: 첫 파도는 즉시 도래
+  G.waveGate=Math.max(0.6,0.8-0.005*(n-1)); // 늘어난 파도가 구간 시간 안에 모두 도래하도록 후반 간격 소폭 단축
   const th=themeOf(n);G.theme=th;
   const nb=Math.ceil(n/CFG.bossEvery)*CFG.bossEvery;
   document.getElementById('stageName').textContent=(NG.cycle>1?NG.cycle+'회차 · ':'')+`스테이지 ${n} · ${th.name}`;
@@ -488,7 +497,7 @@ function fireVolley(c,n,gr){ // 일제사격 1회: gr.s갈래 부채꼴, 인원�
   if(t.kind==='foe'){const dl=Math.hypot(tp.x-from.x,tp.z-from.z);tp.z+=(t.spd||t.cfg.spd)*dl/PSPD;} // 적 전진 선행조준
   const base=Math.atan2(tp.x-from.x,-(tp.z-from.z)); // 전방 0 기준 좌우 각
   const fan=(gr.fan||0)*Math.PI/180;
-  const perDmg=c.dmg*G.dmgMul*gr.dmg*FORCE(n)*RANGE_DMG(c.range)/(c.kind==='wave'?1:gr.s); // 총 화력 = 병종 기본 x 병력 곡선 1회 적용(REF_S 이중 적용 제거) x 사거리 감쇠 — 계수는 가값
+  const perDmg=c.dmg*effMul()*gr.dmg*FORCE(n)*RANGE_DMG(c.range)/(c.kind==='wave'?1:gr.s); // 총 화력 = 병종 기본 x 병력 곡선 1회 적용(REF_S 이중 적용 제거) x 사거리 감쇠 — 계수는 가값
   if(SPECIAL_KINDS.has(c.kind)){fireSpecial(c,gr,t,from,tp,perDmg,n);for(const u of G.allies)playOnce(u,c.anim,'Walking_A');return;}
   if(c.kind==='spread'){const half=10.5*Math.PI/180;G.statV+=0;for(let i=0;i<7;i++){const ang=0+(i/6-0.5)*2*half;spawnVolleyBolt(c,{...gr,s:7},from,ang,perDmg*0.45,n,true);}efkPlay('hit',from,0.15,2.2);for(const u of G.allies)playOnce(u,c.anim,'Walking_A');return;}
   const dzT=Math.max(0.5,from.z-tp.z),angMax=Math.atan2(corridorW(dzT),dzT); // 탄 궤적이 사선대를 벗어나지 않게 발사각 제한
@@ -533,7 +542,8 @@ function spawnAuxBolt(c,from,dmg){ // 후드 특성: 유도 보조탄 — 적만
 }
 
 // ---------- 신규 병종 공격 + 자동 대형 마법 (제안서 12종, 총 폭 ≤ 3.6 규칙: 폭/반경/연쇄 범위 모두 포함) ----------
-const BIG_EVERY=20; // 처치 20마다 자동 대형 마법(직접 시전 없음) — 가값
+const BIG_EVERY=20; // 기본 간격(1스테이지): 처치 20마다 — 스테이지당 +2씩 늘어 후반 남발 방지(사용자 11-27 16:37)
+const bigEvery=()=>BIG_EVERY+2*Math.max(0,G.stage-1);
 function foesAlive(){return G.enemies.filter(e=>e.hp>0&&e.deadT==null);}
 function lineFx(pts,color,ttl,w){const g=new THREE.BufferGeometry().setFromPoints(pts);const m=new THREE.LineBasicMaterial({color,transparent:true,opacity:1});const l=new THREE.Line(g,m);addFx(l,ttl);return l;}
 function slabFx(from,ang,len,wid,color,ttl,op=0.4){const m=new THREE.Mesh(new THREE.PlaneGeometry(wid,len),new THREE.MeshBasicMaterial({color,transparent:true,opacity:op,depthWrite:false,side:THREE.DoubleSide}));m.rotation.x=-Math.PI/2;m.rotation.z=ang;const c=new THREE.Group();c.add(m);m.position.set(0,0,-len/2);c.position.set(from.x,0.25,from.z);c.rotation.y=-ang;const e=addFx(c,ttl,false);e.slab=m;return e;}
@@ -579,7 +589,8 @@ const BIG_LEN=26; // 마법이 훑는 전방 거리(화면 끝까지)
 // 대마법: 처치 BIG_EVERY마리마다 자동 발동(순서 고정: 토네이도 → 메테오 → 낙뢰). 모두 부대 앞에서 전방 끝까지 훑으며 피해를 준다.
 function castBig(which){
   const kind=which||BIG_ORDER[BIGI++%3];
-  const sq=G.squad.position;const dm=G.dmgMul*(1+0.04*G.level)*stageMul(G.stage);G.q=G.q||[];
+  const sq=G.squad.position;G.q=G.q||[];
+  const md=(o,f,b)=>damage(o,Math.max(1,o.maxHp*(o.isBoss?b:f)),'magic'); // 대상 최대체력 비례 피해: 어느 단계에서도 화면 소거가 아니라 강력한 지원화력으로 유지(기존 dmgMul×stageMul 절대 피해는 후반 적 체력을 수십 배 초과해 웨이브를 통째로 지움 — 11-27 16:37)
   const sz0=sq.z,sx0=sq.x;
   G.st.magic[kind]++;
   showBanner('✦ 대마법 · '+BIG_KO[kind],BIG_DESC[kind],'magic',1500);
@@ -590,7 +601,7 @@ function castBig(which){
     const mk=ring(0x9fe8ff,R,0.5);mk.position.set(pos.x,0.14,pos.z);scene.add(mk);
     G.q.push({t:BIG_LEN/SP,step:(dt)=>{pos.z-=SP*dt;tk+=dt;fxT-=dt;mk.position.set(pos.x,0.14,pos.z);mk.rotation.z+=dt*8;
         if(fxT<=0){fxT=0.14;efkPlay('tornade',new THREE.Vector3(pos.x,0,pos.z),0.38,1.6);}
-        if(tk>=0.08){tk=0;for(const o of foesAlive())if(Math.hypot(o.obj.position.x-pos.x,o.obj.position.z-pos.z)<=R){damage(o,6*dm,'magic');o.obj.position.z-=0.08;}}},
+        if(tk>=0.08){tk=0;for(const o of foesAlive())if(Math.hypot(o.obj.position.x-pos.x,o.obj.position.z-pos.z)<=R){md(o,0.08,0.0035);o.obj.position.z-=0.08;}}},
       fn:()=>{scene.remove(mk);}});
   }else if(kind==='meteo'){ // 전방 구간을 앞에서 뒤로 8발 연속 낙하: 적이 몰린 곳을 우선 조준(예고 원 → 낙하)
     const N=8;
@@ -603,7 +614,7 @@ function castBig(which){
         const q=new THREE.Vector3(tx,0,tz);
         mark(q.x,q.z,1.7,0xff5a2a,0.45);
         G.q.push({t:0.45,fn:()=>{efkPlay('meteo',q,0.5,1.4);mark(q.x,q.z,1.7,0xff9a4a,0.4);
-          for(const o of foesAlive())if(Math.hypot(o.obj.position.x-q.x,o.obj.position.z-q.z)<=1.7)damage(o,15*dm,'magic');}});
+          for(const o of foesAlive())if(Math.hypot(o.obj.position.x-q.x,o.obj.position.z-q.z)<=1.7)md(o,0.22,0.015);}});
       }});
     }
   }else{ // 낙뢰: 가까운 적부터 전방 끝까지 순서대로(적이 적으면 전방 레인을 따라 빈 곳에도 낙뢰)
@@ -614,7 +625,7 @@ function castBig(which){
         const e=tg[i];let x,z;
         if(e&&e.hp>0){x=e.obj.position.x;z=e.obj.position.z;}else{z=sz0-3-i*(BIG_LEN-3)/(M-1);x=sx0+((i*53)%7-3)*0.5;}
         const q=new THREE.Vector3(x,0,z);mark(x,z,1.0,0xbfe6ff,0.25);efkPlay('thunder',q,0.22,1.6);
-        for(const o of foesAlive())if(Math.hypot(o.obj.position.x-x,o.obj.position.z-z)<=1.0)damage(o,11*dm,'magic');}});
+        for(const o of foesAlive())if(Math.hypot(o.obj.position.x-x,o.obj.position.z-z)<=1.0)md(o,0.30,0.012);}});
     }
   }
 }
@@ -658,7 +669,7 @@ function fireBolt(unit,target){
   else if(c.kind==='fire'){mesh=new THREE.Mesh(new THREE.SphereGeometry(0.12,10,10),new THREE.MeshBasicMaterial({color:0xffe0a0}));grp.add(mesh);}
   else{mesh=new THREE.Mesh(new THREE.OctahedronGeometry(0.16),new THREE.MeshBasicMaterial({color:c.color}));mesh.scale.set(0.7,0.7,1.8);if(DART)mesh.scale.set(0.8,0.8,12.0); grp.add(mesh);} // DART: 원작식 긴 탄체(약 0.13x1.9)
   grp.position.copy(from);scene.add(grp);
-  const p={mesh:grp,target:c.homing?target:null,owner:unit,dmg:c.dmg*G.dmgMul,speed:PSPD,kind:c.kind,color:c.color,hitEfk:c.hitEfk||'hit'};
+  const p={mesh:grp,target:c.homing?target:null,owner:unit,dmg:c.dmg*effMul(),speed:PSPD,kind:c.kind,color:c.color,hitEfk:c.hitEfk||'hit'};
   if(!c.homing){const tp0=target.obj.position.clone();tp0.y=0.8;
     if(target.kind==='foe')tp0.z+=(target.spd||target.cfg.spd)*(tp0.distanceTo(from)/PSPD); // 적의 전진을 앞질러 조준(추적은 아님)
     const d0=tp0.clone().sub(from);const dist0=Math.max(0.1,d0.length());
@@ -670,7 +681,7 @@ function fireBolt(unit,target){
 function cleave(unit,target){
   const p=target.obj.position.clone();p.y=0.8;
   if((unit.fxT||0)<=0){efkPlay(unit.cfg.hitEfk||'ember',p,unit.cfg.fxScale||0.4,unit.cfg.fxSpeed||1.4);unit.fxT=0.7;}
-  damage(target,unit.cfg.dmg*G.dmgMul);
+  damage(target,unit.cfg.dmg*effMul());
   playOnce(unit,unit.cfg.anim,'Walking_A');
 }
 function damage(t,d,src){
@@ -690,7 +701,8 @@ function damage(t,d,src){
 function killUnit(t){
   if(t.kind==='foe'){
     G.kills++;{const key=t.isBoss?'boss':t.type;G.st.kills[key]=(G.st.kills[key]||0)+1;G.st.kStage[G.stage]=(G.st.kStage[G.stage]||0)+1;}
-    if(G.kills%BIG_EVERY===0)castBig();G.combo++;G.st.maxCombo=Math.max(G.st.maxCombo,G.combo);G.comboT=4.0; // 콤보 창(시제품 4.0초, 계측 후 조정)
+    // 스테이지가 오를수록 발동 간격도 증가(후반 남발 방지)
+    if(G.kills>=G.nextBig){G.nextBig+=bigEvery();castBig();}G.combo++;G.st.maxCombo=Math.max(G.st.maxCombo,G.combo);G.comboT=4.0; // 콤보 창(시제품 4.0초, 계측 후 조정)
     if(G.combo>=2){const tier=G.combo>=25?'#ff5a4a':G.combo>=10?'#ff9a3c':G.combo>=5?'#ffd966':'#ffffff'; // 콤보는 우측 상단 카운터에 통합(사용자 10:29) — 평소 작게, 누적 순간만 짧고 날카롭게
       const cb=$('combo');cb.style.setProperty('--cc',tier);cb.querySelector('.cbn').textContent='\u00d7'+G.combo;
       cb.classList.add('on');cb.classList.remove('hit','hit5');void cb.offsetWidth;cb.classList.add(G.combo%5===0?'hit5':'hit');}
@@ -699,7 +711,7 @@ function killUnit(t){
     const dp=t.obj.position.clone();dp.y=0.9;
     if(t.isBoss)efkPlay('featherbomb',dp,0.40,1.8);
     else{const tier=fxTier();if((G.sparkT||0)<=0){const sp=sparkBurst((CLASSES[G.cls]||{}).color||0xffe9a8,tier>=2?1.35:1.15);sp.position.copy(dp);const fe=addFx(sp,0.24,false);fe.grow=1;fe.spark=sp.userData.mat;G.sparkT=0.12;}if(tier>=3&&(G.fx3T||0)<=0){efkPlay('toonhit',dp,0.5,2.0);G.fx3T=0.15;}} // 다중 동시 처치 피크 제한 + 성장 티어(강타 소형 폭발은 비화염), T3 폭발 교체(featherbomb→toonhit 0.5): 가림 없이 타격지점 식별(동일조건 실속 영상 비교)
-    if(G.kills%CFG.killsPerLevel===0){G.level++;G.dmgMul*=CFG.levelMul;
+    if(++G.lvKills>=CFG.lvK0+CFG.lvStep*(G.level-1)){G.lvKills=0;G.level++;G.dmgMul*=CFG.levelMul;
       {const rp=ring(0xffd966,1.2,0.8);rp.position.set(G.squad.position.x,0.12,G.squad.position.z);addFx(rp,0.6);} // 밝은 중심면 없는 얇은 고리 표시(비교빌드)
       const l=labelSprite('레벨 업!','#ffe27a',2.4);l.position.set(G.squad.position.x,2.6,G.squad.position.z-1);addFx(l,1.6);}
     if(t.acts.Death_A||t.acts.Death){const d=t.acts.Death_A||t.acts.Death;
@@ -718,13 +730,14 @@ function killUnit(t){
       {const rp=ring(0xffd966,1.0,0.8);rp.position.set(p.x,0.12,p.z);addFx(rp,0.6);} // 밝은 중심면 없는 얇은 고리 표시(비교빌드)
       const l=labelSprite('대원 +1','#ffd966',2.2);l.position.copy(p).add(new THREE.Vector3(0,1,0));addFx(l,1.6);
       if(G.allies.length<16)spawnAlly(G.cls);
-      else{G.dmgMul*=1.1;const l2=labelSprite('단련: 공격력 +10%','#ffd966',2.2);l2.position.copy(p).add(new THREE.Vector3(0,2,0));addFx(l2,1.6);} // 인원 상한(시제품 16) 이후 보상 대체(제안값)
+      // 인원 상한 후 상자 보상 1.1→1.02: 후반 매 스테이지 2개씩 누적되며 폭증하던 축(11-27 16:37)
+      else{G.dmgMul*=1.02;const l2=labelSprite('단련: 공격력 +2%','#ffd966',2.2);l2.position.copy(p).add(new THREE.Vector3(0,2,0));addFx(l2,1.6);} // 인원 상한(시제품 16) 이후 보상 대체(제안값)
     }else if(t.btype==='captive'){G.st.captives++;
       convertSquad(t.obj.userData.rewardCls||'Knight'); // 전환: 비행탄 제거+전원 교체+1명은 convertSquad 내부
     }else{
       {const rp=ring(0x9fe8ff,1.0,0.8);rp.position.set(p.x,0.12,p.z);addFx(rp,0.6);} // 밝은 중심면 없는 얇은 고리 표시(비교빌드)
-      G.dmgMul*=1.2;G.st.crystals++;
-      const l=labelSprite('공격력 +20%','#9fe8ff',2.4);l.position.copy(p).add(new THREE.Vector3(0,1,0));addFx(l,1.6);
+      G.dmgMul*=1.05;G.st.crystals++; // 수정 배율 1.2→1.05: 스테이지당 1개×40회 누적이 후반 화력 폭증의 한 축(11-27 16:37)
+      const l=labelSprite('공격력 +5%','#9fe8ff',2.4);l.position.copy(p).add(new THREE.Vector3(0,1,0));addFx(l,1.6);
     }
     if(t.hpNum){t.obj.remove(t.hpNum.sprite);t.hpNum=null;}
     if(t.obj.userData.tag){t.obj.remove(t.obj.userData.tag);t.obj.userData.tag=null;} // 파괴된 블록의 보상 라벨 잔존 방지
@@ -792,7 +805,7 @@ async function init(){
   const stg=parseInt(new URLSearchParams(location.search).get('stage'))||1; // 테스트용 구간 건너뛰기
   if(stg>1){
     for(let i=0;i<3;i++)await spawnAlly(G.cls);G.extra=3;
-    G.dmgMul=2.0;G.level=6;G.kills=40;
+    G.dmgMul=2.0;G.level=6;G.kills=40;G.nextBig=60;G.lvKills=0;
     G.squad.position.z=-CFG.stageLen*(stg-1);
   }
   const squadN=parseInt(new URLSearchParams(location.search).get('squad'))||0; // 테스트용 대원 수 고정(12명 동일조건 검증)
@@ -982,7 +995,7 @@ function update(dt){
     if(G.spawned.has(i))return;
     if(e.z<sq.z-34)return; // 예지 24->34: 다음 구간 파도가 전환 전에 미리 접근을 시작해 스테이지 경계의 전투 공백 제거(사용자 11-27)
     if(e.type==='foe'&&typeof e.wave==='number'&&e.wave>G.waveCur){ // 파도 순차 도래(0.8s 간격): 스테이지 경계에서 34 예지 범위 파도가 한꺼번에 쏟아지는 폭주 방지 — spawned 표기 전에 판정해야 파도가 유실되지 않음
-      if(G.gtime-G.waveT<0.8)return;
+      if(G.gtime-G.waveT<G.waveGate)return;
       G.waveCur=e.wave;G.waveT=G.gtime;
     }
     G.spawned.add(i);
@@ -1108,8 +1121,8 @@ function update(dt){
   { const dist=Math.max(0,Math.floor(-sq.z));sample(false);
     $('dist').textContent=dist;const bestShown=Math.max(G.prevBest,dist);$('best').textContent=bestShown;
     $('scoreBox').classList.toggle('rec',dist>G.prevBest&&G.prevBest>0);
-    const mk=G.kills%BIG_EVERY;$('magicBar').style.width=(100*mk/BIG_EVERY)+'%';
-    $('magicTxt').textContent='대마법 '+mk+'/'+BIG_EVERY+' · 다음 '+BIG_KO[BIG_ORDER[BIGI%3]]; }
+    const be=bigEvery();const mk=Math.min(be,be-(G.nextBig-G.kills));$('magicBar').style.width=(100*mk/be)+'%';
+    $('magicTxt').textContent='대마법 '+mk+'/'+be+' · 다음 '+BIG_KO[BIG_ORDER[BIGI%3]]; }
   $('fps').textContent=Math.round(fpsEMA)+' fps · 초안';
 }
 init().catch(e=>{console.error(e);window.__err=String(e.stack||e);});
