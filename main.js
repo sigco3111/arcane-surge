@@ -94,7 +94,8 @@ const CFG={
   finalStage:40, // 8지역 x 5구간 = 40스테이지: 최종 보스(8번째) 격파가 클리어 조건(사용자 승인 11-27)
 };
 const FINAL_BOSS_IDX=CFG.finalStage/CFG.bossEvery;
-function stageMul(n){return n<=1?1:0.9*Math.pow(1.3,Math.min(n,12)-2)*Math.pow(1.15,Math.max(0,n-12));} // 11-27 12:36: 구 곡선×0.6 — 너프된 원거리 병종의 처치 타격 수가 전보다 늘어나는 선까지만 하향(상쇄 방지) // 적 체력 배율: 1스테이지=1, 2스테이지부터 1.5배로 뛰고 이후 1.3배씩(12 이후 1.15배씩)
+function stageMul(n){return n<=1?1:0.9*Math.pow(1.3,Math.min(n,12)-2)*Math.pow(1.15,Math.max(0,n-12));}
+function foeHpMul(n){return 0.9*Math.pow(1.15,n-2);} // 일반 적 체력 곡선(3스테이지~): 구간 성장 30%→15%로 완만화 (사용자 11-27 18:46 '3~12 스테이지까지 매 구간 15%로'). 13+도 기존과 같은 15%/구간이라 경계 연속. 화력 상한 effMul·보스 기준 화력 refDps는 기존 stageMul 곡선 유지(다른 수치 무변경 지시) // 11-27 12:36: 구 곡선×0.6 — 너프된 원거리 병종의 처치 타격 수가 전보다 늘어나는 선까지만 하향(상쇄 방지) // 적 체력 배율: 1스테이지=1, 2스테이지부터 1.5배로 뛰고 이후 1.3배씩(12 이후 1.15배씩)
 function blockMul(n){return Math.pow(1.3,Math.min(n,12)-1)*Math.pow(1.15,Math.max(0,n-12));}
 const isBossStage=n=>n>0&&n%CFG.bossEvery===0;
 const CLASSES={
@@ -352,7 +353,7 @@ async function spawnFoe(type,x,z,isBoss=false,wave){
     const gm=await loadG(A+BOSS.u),gb=await loadG(A+bdef.u);const refH=bboxH(gm.scene)*BOSS.s;
     f={...BOSS,u:bdef.u,hp:Math.max(300,Math.round(refDps(stg0)*0.6*3.2*Math.sqrt(bdef.hpm||1))),s:refH*bdef.m/bboxH(gb.scene),hy:refH*bdef.m+0.8};} // 보스 체력 = 구간 기준 화력(의 60%)×3.2초: 스테이지 고정값이라 성장·병종 선택이 결전 시간 단축으로 체감됨(기준 편성 약 3.2초, 돌파 창구 약 5초, 11-27 재조정)
   const rf=regionFoes(stg0); // 지역별 적 보정(조합은 stageLayout이 결정)
-  const hscale=(isBoss?1:(stg0===1?0.31:stg0===2?0.65:stageMul(stg0)))*(isBoss?cycleHp():rf.hp*cycleHp()); // 보스는 refDps 기준 스케일이라 구간 곡선 미적용(회차 보정만) // 기본 체력 +30% 반영: 1스테이지 계수 0.52→0.31(=구 곡선×0.6: 사거리 너프 실효 보존 기준), 2스테이지부터 상승 곡선 그대로
+  const hscale=(isBoss?1:(stg0===1?0.31:stg0===2?0.65:foeHpMul(stg0)))*(isBoss?cycleHp():rf.hp*cycleHp()); // 보스는 refDps 기준 스케일이라 구간 곡선 미적용(회차 보정만) // 기본 체력 +30% 반영: 1스테이지 계수 0.52→0.31(=구 곡선×0.6: 사거리 너프 실효 보존 기준), 2스테이지부터 상승 곡선 그대로
   const sscale=(isBoss?1:Math.min(1.65,1+0.055*(stg0-1))*(stg0===1?0.85:1))*(isBoss?1:rf.spd)*cycleSpd(); // 원작 참고: 단계가 갈수록 적 이동 가속 — 상한 1.9→1.65·가속 0.07→0.055로 소폭 완화(사용자 11-27 17:51 승인)
   const {root,anims}=await makeModel(A+f.u,f.s,isBoss?(bdef.tint||null):[1.05,0.8,0.8]);
   root.position.set(x,0,z);root.rotation.y=0;
@@ -548,6 +549,9 @@ const BIG_EVERY=20; // 기본 간격(1스테이지): 처치 20마다 — 스테�
 const bigEvery=()=>BIG_EVERY+2*Math.max(0,G.stage-1);
 function foesAlive(){return G.enemies.filter(e=>e.hp>0&&e.deadT==null);}
 function lineFx(pts,color,ttl,w){const g=new THREE.BufferGeometry().setFromPoints(pts);const m=new THREE.LineBasicMaterial({color,transparent:true,opacity:1});const l=new THREE.Line(g,m);addFx(l,ttl);return l;}
+function chainFx(pts){ // 소서러 연쇄 번개 경로 시각 개선(사용자 11-27 18:43 승인 1+2안): 1px 직선 → 지그재그 발광 아크(밝은 코어 선 + 경로 글로우 스프라이트), 잔상 0.22→0.35s. 판정·피해 불변
+  let path=[];for(let i=0;i<pts.length-1;i++){const a=pts[i],b=pts[i+1];const seg=Math.max(2,Math.round(a.distanceTo(b)/0.55));for(let j=0;j<=seg;j++){if(i>0&&j===0)continue;const p=a.clone().lerp(b,j/seg);if(j>0&&j<seg){p.x+=(Math.random()-0.5)*0.3;p.y=Math.max(0.15,p.y+(Math.random()-0.5)*0.24);}path.push(p);}}
+  lineFx(path,0xeaf6ff,0.35);for(let j=0;j<path.length;j+=2){const s=glowSprite(0xbfe6ff,0.5);s.position.copy(path[j]);addFx(s,0.3);}}
 function slabFx(from,ang,len,wid,color,ttl,op=0.4){const m=new THREE.Mesh(new THREE.PlaneGeometry(wid,len),new THREE.MeshBasicMaterial({color,transparent:true,opacity:op,depthWrite:false,side:THREE.DoubleSide}));m.rotation.x=-Math.PI/2;m.rotation.z=ang;const c=new THREE.Group();c.add(m);m.position.set(0,0,-len/2);c.position.set(from.x,0.25,from.z);c.rotation.y=-ang;const e=addFx(c,ttl,false);e.slab=m;return e;}
 function fireSpecial(c,gr,t,from,tp,dmg,n){
   const k=c.kind;G.statV++;
@@ -567,14 +571,14 @@ function fireSpecial(c,gr,t,from,tp,dmg,n){
     G.projs.push(p);G.statB++;return;}
   if(k==='chain'){
     const pts=[from.clone()];const first=t;const hit=[first];
-    const hp=first.obj.position.clone();hp.y=0.9;pts.push(hp);damage(first,dmg,'skill');efkPlay('thunder',new THREE.Vector3(hp.x,0,hp.z),0.12,2.2);
+    const hp=first.obj.position.clone();hp.y=0.9;pts.push(hp);damage(first,dmg,'skill');efkPlay('thunder',new THREE.Vector3(hp.x,0,hp.z),0.16,2.2);{const s=glowSprite(0xbfe6ff,0.9);s.position.set(hp.x,0.9,hp.z);addFx(s,0.3);} // 적중 섬광 강화(1+2안)
     let last=first;
     for(let h=0;h<4;h++){let best=null,bd=1e9; // 5연쇄(개편안): 첫 대상 + 4회 연쇄
       for(const e of foesAlive()){if(hit.includes(e))continue;const p=e.obj.position;if(p.z>from.z-0.3)continue;
         if(Math.abs(p.x-aimX(p.z))>1.5)continue; // 연쇄는 조준선 ±1.5 안에서만 — 총 폭 3.0
         const d=Math.hypot(p.x-last.obj.position.x,p.z-last.obj.position.z);if(d<=1.5&&d<bd){bd=d;best=e;}}
-      if(!best)break;hit.push(best);const q=best.obj.position.clone();q.y=0.9;pts.push(q);damage(best,dmg*0.6,'skill');efkPlay('thunder',new THREE.Vector3(q.x,0,q.z),0.1,2.2);last=best;}
-    lineFx(pts,0xbfe6ff,0.22);return;}
+      if(!best)break;hit.push(best);const q=best.obj.position.clone();q.y=0.9;pts.push(q);damage(best,dmg*0.6,'skill');efkPlay('thunder',new THREE.Vector3(q.x,0,q.z),0.14,2.2);{const s=glowSprite(0xbfe6ff,0.7);s.position.set(q.x,0.9,q.z);addFx(s,0.3);}last=best;} // 연쇄 적중 섬광(1+2안)
+    chainFx(pts);return;}
   if(k==='flame'){
     const len=c.range;
     for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)]){const p=o.obj.position;const dz=from.z-p.z;if(dz<=0||dz>len)continue;if(Math.abs(p.x-aimX(p.z))>1.2)continue;damage(o,dmg,'skill');}
