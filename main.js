@@ -184,7 +184,7 @@ const PSPD=DART?58:30; // 효과 청취 전용: id=경로,id=경로
 const BOSS={u:'bosses/Mushnub_Evolved.gltf',hp:750,spd:1.2,s:0.95,rr:1.3,gltf:true}; // 개편 보정: 보스 체력 +30% // 접근 1.9->1.2: 전진 2.6과 합산 상대속도 3.8로 기존(3.6) 수준 유지 — 보스전 시간 동일
 const BOSSES=[{u:'bosses/Mushnub_Evolved.gltf',name:'머쉬넙',m:1},{u:'bosses/Orc.gltf',name:'오크 대장',m:1.15},{u:'bosses/Cyclops.gltf',name:'사이클롭스',m:1.3},
   {u:'bosses/Yeti.gltf',name:'예티',m:1.2},{u:'bosses/YellowDragon.gltf',name:'황금 드래곤',m:1.25},{u:'bosses/Cthulhu.gltf',name:'심연의 군주',m:1.2,hpm:1.1},
-  {u:'cute/Demon.gltf',name:'혼돈의 데몬',m:1.35,hpm:1.2},{u:'cute/GreenDemon.gltf',name:'종말의 마왕',m:1.65,hpm:1.55,tint:[0.62,0.4,0.85]}]; // 보스 순환(원 보스 크기 기준으로 자동 정규화), hpm=체력 배율
+  {u:'bosses/Cyclops.gltf',name:'혼돈의 거인',m:1.5,hpm:1.2,tint:[0.8,0.3,0.25]},{u:'bosses/YellowDragon.gltf',name:'종말의 마왕',m:1.65,hpm:1.55,tint:[0.62,0.4,0.85]}]; // 보스 순환(원 보스 크기 기준으로 자동 정규화), hpm=체력 배율. 7·8번은 출처 미확인 cute/Demon·GreenDemon 대신 기존 attribution 모델 틴트 변형(11-27)
 const REGION_FOES=[ // 지역별 적 구성·보정(11-27 확장): 후반 지역일수록 강한 조합
   {mix:['Warrior','Warrior','Minion','Rogue'],hp:1,spd:1},           // 1 시작의 들판
   {mix:['Warrior','Minion','Rogue','Rogue','Mage'],hp:1.05,spd:1},    // 2 단풍 숲길: 도적 다수
