@@ -448,7 +448,7 @@ function stageLayout(n){
     L.push({dz:j(29),type:'foe',foe:pick(),x:jx(-0.7),wave:2}); // 보스 구간 잔졸 기본 17→19: 이전 스테이지 대비 물량 증가 원칙(11-27 16:37)을 보스 구간에도 적용
     L.push({dz:j(51),type:'foe',foe:pick(),x:jx(-1.4),wave:6});
     L.push({dz:j(52),type:'foe',foe:pick(),x:jx(0.8),wave:6});
-    const extraF=Math.floor(n/8);for(let w=0;w<7;w++)for(let i=0;i<extraF;i++)L.push({dz:j(10+w*6),type:'foe',foe:pick(),x:jx((i%2?1:-1)*(0.5+0.4*i)),wave:w}); // 보스 구간 잔졸도 단계당 증원(11-27 16:37)
+    const extraF=Math.floor(n/8);for(let w=0;w<4;w++)for(let i=0;i<extraF;i++)L.push({dz:j(10+w*8),type:'foe',foe:pick(),x:jx((i%2?1:-1)*(0.5+0.4*i)),wave:w}); // 보스 구간 잔졸 증원 ×7→×4(11-27 실측: 증원분이 보스 앞 화력 차단막이 되어 결전 난도 과승)
     if(Math.random()<0.5){L.push({dz:j(42),type:'chest',x:jx(1.6)});L.push({dz:j(51),type:'captive',x:jx(-1.7)});}
     else{L.push({dz:j(42),type:'captive',x:jx(-1.7)});L.push({dz:j(51),type:'chest',x:jx(1.6)});} // 보스 구간 보상 순서도 반반으로
   }
