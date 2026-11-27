@@ -582,7 +582,7 @@ function fireSpecial(c,gr,t,from,tp,dmg,n){
   if(k==='flame'){
     const len=c.range;
     for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)]){const p=o.obj.position;const dz=from.z-p.z;if(dz<=0||dz>len)continue;if(Math.abs(p.x-aimX(p.z))>1.2)continue;damage(o,dmg,'skill');}
-    for(let i=1;i<=3;i++){const q=new THREE.Vector3(aimX(from.z-i*1.2),0.6,from.z-i*1.2);efkPlay('fireball',q,0.12+0.03*i,2.2);}{const fh=efkPlay('flame',new THREE.Vector3(aimX(from.z-2.4),0.4,from.z-2.4),0.12,2.0);if(fh){try{fh.setRotation(0,Math.PI,0);}catch(e){}}}return;} // Flame.efk 제트가 +Z(부대 쪽)로 분사되어 발사가 거꾸로 보임 → 전방(-Z)으로 회전 (사용자 11-27 18:21 제보)
+    for(let i=1;i<=3;i++){const q=new THREE.Vector3(aimX(from.z-i*1.2),0.6,from.z-i*1.2);efkPlay('fireball',q,0.12+0.03*i,2.2);}{const fh=efkPlay('flame',new THREE.Vector3(aimX(from.z-4.5),0.4,from.z-4.5),0.12,2.0);}return;} // Flame.efk는 무향성 폭발(회전 무의미) — 폭발 위치를 전방 4.5로 이동해 화염이 부대 위에 겹치지 않게 함
   if(k==='beam'){
     const len=c.range;for(let i=0;i<5;i++){const zz=from.z-1.5-i*3.2;efkPlay('aura',new THREE.Vector3(aimX(zz),0.9,zz),0.16,2.4);}
     for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)]){const p=o.obj.position;const dz=from.z-p.z;if(dz<=0||dz>len)continue;if(Math.abs(p.x-aimX(p.z))>0.4)continue;damage(o,dmg,'skill');if(o.kind==='foe'&&!(G.sparkT>0)){efkPlay('thunder',new THREE.Vector3(p.x,0,p.z),0.1,2.2);G.sparkT=0.12;}}return;}
