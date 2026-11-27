@@ -795,6 +795,7 @@ async function init(){
   sb.addEventListener('click',()=>{$('title').classList.add('hidden');G.state='play';});
   $('retryBtn').addEventListener('click',()=>location.reload());
   $('pauseBtn').addEventListener('click',()=>togglePause());
+  $('pauseOv').addEventListener('click',()=>togglePause()); // 모바일: 오버레이가 pauseBtn(z-index 5)보다 위(z-index 9)라 탭 재개 불가했음 — 오버레이 어디든 탭하면 재개
   requestAnimationFrame(tick);
 }
 function fmtT(t){t=Math.round(t);return Math.floor(t/60)+':'+String(t%60).padStart(2,'0');}
