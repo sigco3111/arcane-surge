@@ -117,7 +117,7 @@ const GROWTH={ // 탄수 초반 가속(사용자 07:44 "5명까지 탄 수"·매
 };
 const REF_S={Knight:[0,1,1,1,2,2,3,3,3,4,4,5,5,5,6,6,7],Rogue:[0,1,1,1,1,1,2,2,2,3,3,3,3,3,4,4,5],Mage:[0,1,1,1,1,1,2,2,2,2,2,3,3,3,4,4,5],Barbarian:[0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],Rogue_Hooded:[0,1,1,1,2,2,2,3,3,3,3,4,4,4,5,5,5]}; // 정규화 기준: 이전 탄수 곡선(총화력 유지용)
 // 실효 공격 배율 = 누적 배율을 스테이지 곡선 봉투로 상한(사용자 11-27 16:37 "후반으로 갈수록 너무 쉬워짐"): 성장은 스테이지 진행에 묶이고, 레벨/수정/단련은 봉투까지의 속도만 결정 — 후반 폭발적 격차 원천 차단
-const effMul=()=>Math.min(G.dmgMul,2.2*Math.pow(stageMul(G.stage),0.9));
+const effMul=()=>Math.min(G.dmgMul,2.5*Math.pow(stageMul(G.stage),0.9));
 function refDps(n){const m=Math.min(16,1+3*(n-1));const gr=growth('Knight',m);const c={...CLASSES.Knight,dmg:7.2}; // 구간 기준 화력: 나이트·구간별 기대 인원·봉투 배율의 기준 편성(보스 체력 산정 전용) // dmg는 개편 전 7.2 고정 — 나이트 강화(7.92)와 무관하게 보스 체력 직전 버전 유지(사용자 방침 11-27 18:37)
   const per=c.dmg*(2.2*Math.pow(stageMul(n),0.9))*(gr.dmg||1)*FORCE(m)*RANGE_DMG(c.range);
   const cyc=Math.max(0.08,c.cd*(gr.rate||1))+0.09*Math.max(0,(gr.burst||1)-1);
@@ -397,7 +397,7 @@ async function spawnBlock(kind,x,z){
   }else{
     const cry=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.9,0.5),new THREE.MeshStandardMaterial({color:0x66e0ff,emissive:0x2288cc,emissiveIntensity:1.6,roughness:0.2}));
     cry.position.y=0.55;cry.rotation.y=Math.PI/4;grp.add(cry);
-    const tag=labelSprite('공격력 +2%','#9fe8ff',2.6);tag.position.y=2.1;grp.add(tag);
+    const tag=labelSprite('공격력 +4%','#9fe8ff',2.6);tag.position.y=2.1;grp.add(tag);
     grp.userData.tag=tag;
   }
   grp.add(discShadow(0.5));
@@ -429,6 +429,7 @@ function stageLayout(n){
     const rx=t=>t==='captive'?(Math.random()<0.5?-1:1)*R(1.5,1.8):sx();
     const rwTypes=n===1?['chest'].concat(shuffle(['crystal','chest','captive'])):shuffle(['chest','crystal','chest','captive']); // 보상 종류 순서도 판마다 셔플(사용자 11-27 14:15: 종류 순서가 고정이어서 같은 패턴으로 느껴짐) — 1스테이지는 첫 상자 고정(초반 병력 보강 유지)
     [R(5,7),R(19,26),R(30,36),R(41,47)].forEach((dz,i)=>L.push({dz,type:rwTypes[i],x:rx(rwTypes[i])}));
+    L.push({dz:R(12,16),type:'crystal',x:sx()}); // 공격력 수정 추가 1개(사용자 11-27 19:25): 일반 스테이지 수정 1→2개
   }else{
     const rf=regionFoes(n).mix,pick=()=>rf[Math.floor(Math.random()*rf.length)]; // 보스 구간 잔졸 구성도 랜덤
     const j=d=>d+R(-1.5,1.5),jx=x=>Math.max(-2,Math.min(2,x+R(-0.5,0.5)));
@@ -450,6 +451,7 @@ function stageLayout(n){
     L.push({dz:j(51),type:'foe',foe:pick(),x:jx(-1.4),wave:6});
     L.push({dz:j(52),type:'foe',foe:pick(),x:jx(0.8),wave:6});
     const extraF=Math.floor(n/8);for(let w=0;w<4;w++)for(let i=0;i<extraF;i++)L.push({dz:j(10+w*8),type:'foe',foe:pick(),x:jx((i%2?1:-1)*(0.5+0.4*i)),wave:w}); // 보스 구간 잔졸 증원 ×7→×4(11-27 실측: 증원분이 보스 앞 화력 차단막이 되어 결전 난도 과승)
+    L.push({dz:j(17),type:'crystal',x:jx(0)}); // 보스 구간에도 공격력 수정 1개
     if(Math.random()<0.5){L.push({dz:j(42),type:'chest',x:jx(1.6)});L.push({dz:j(51),type:'captive',x:jx(-1.7)});}
     else{L.push({dz:j(42),type:'captive',x:jx(-1.7)});L.push({dz:j(51),type:'chest',x:jx(1.6)});} // 보스 구간 보상 순서도 반반으로
   }
@@ -582,12 +584,14 @@ function fireSpecial(c,gr,t,from,tp,dmg,n){
   if(k==='flame'){
     const len=c.range;
     for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)]){const p=o.obj.position;const dz=from.z-p.z;if(dz<=0||dz>len)continue;if(Math.abs(p.x-aimX(p.z))>1.2)continue;damage(o,dmg,'skill');}
-    for(let i=1;i<=3;i++){const q=new THREE.Vector3(aimX(from.z-i*1.2),0.6,from.z-i*1.2);efkPlay('fireball',q,0.12+0.03*i,2.2);}{const fh=efkPlay('flame',new THREE.Vector3(aimX(from.z-4.5),0.4,from.z-4.5),0.12,2.0);}return;} // Flame.efk는 무향성 폭발(회전 무의미) — 폭발 위치를 전방 4.5로 이동해 화염이 부대 위에 겹치지 않게 함
+    {const fz0=from.z-0.8,fxx=aimX(fz0);for(let i=0;i<4;i++)G.flameFx.push({t:-i*0.07,x:fxx,z0:fz0,len:Math.max(4,len-1),h:null,sc:0.13+0.02*i});}return;} // 화염 연출: 정적 배치 대신 4발 화구가 부대 앞에서 전방(-z)으로 실제 이동(매 프레임 위치 갱신) — 사용자 11-27 19:25 '불이 뒤로 발사'
   if(k==='beam'){
     const len=c.range;for(let i=0;i<5;i++){const zz=from.z-1.5-i*3.2;efkPlay('aura',new THREE.Vector3(aimX(zz),0.9,zz),0.16,2.4);}
     for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)]){const p=o.obj.position;const dz=from.z-p.z;if(dz<=0||dz>len)continue;if(Math.abs(p.x-aimX(p.z))>0.4)continue;damage(o,dmg,'skill');if(o.kind==='foe'&&!(G.sparkT>0)){efkPlay('thunder',new THREE.Vector3(p.x,0,p.z),0.1,2.2);G.sparkT=0.12;}}return;}
 }
 let BIGI=0;
+G.flameFx=[];
+function updFlameFx(dt){for(let i=G.flameFx.length-1;i>=0;i--){const f=G.flameFx[i];f.t+=dt;if(f.t<0)continue;if(!f.h){f.h=efkPlay('fireball',{x:f.x,y:0.6,z:f.z0},f.sc,1.0);if(!f.h){G.flameFx.splice(i,1);continue;}}const d=f.t*26;if(d>=f.len){try{f.h.stop();}catch(e){}G.flameFx.splice(i,1);continue;}try{f.h.setLocation(f.x,0.6,f.z0-d);}catch(e){G.flameFx.splice(i,1);}}}
 const BIG_ORDER=['tornado','meteo','thunder'];
 const BIG_KO={tornado:'토네이도',meteo:'메테오',thunder:'낙뢰'};
 const BIG_DESC={tornado:'전방 끝까지 휩쓸며 적을 갈아냅니다',meteo:'전방으로 운석이 연속 낙하합니다',thunder:'전방 적들에게 연쇄로 번개가 내리칩니다'};
@@ -742,8 +746,8 @@ function killUnit(t){
       convertSquad(t.obj.userData.rewardCls||'Knight'); // 전환: 비행탄 제거+전원 교체+1명은 convertSquad 내부
     }else{
       {const rp=ring(0x9fe8ff,1.0,0.8);rp.position.set(p.x,0.12,p.z);addFx(rp,0.6);} // 밝은 중심면 없는 얇은 고리 표시(비교빌드)
-      G.dmgMul*=1.02;G.st.crystals++; // 수정 배율 1.2→1.02: 스테이지당 1개×40회 누적이 후반 화력 폭증의 한 축이었음(11-27 재조정)
-      const l=labelSprite('공격력 +2%','#9fe8ff',2.4);l.position.copy(p).add(new THREE.Vector3(0,1,0));addFx(l,1.6);
+      G.dmgMul*=1.04;G.st.crystals++; // 수정 배율 1.2→1.02: 스테이지당 1개×40회 누적이 후반 화력 폭증의 한 축이었음(11-27 재조정)
+      const l=labelSprite('공격력 +4%','#9fe8ff',2.4);l.position.copy(p).add(new THREE.Vector3(0,1,0));addFx(l,1.6);
     }
     if(t.hpNum){t.obj.remove(t.hpNum.sprite);t.hpNum=null;}
     if(t.obj.userData.tag){t.obj.remove(t.obj.userData.tag);t.obj.userData.tag=null;} // 파괴된 블록의 보상 라벨 잔존 방지
@@ -1055,6 +1059,7 @@ function update(dt){
       if(dz>-1.0)tag.visible=false;}
     if(b.remove)scene.remove(b.obj);
     else if(b.obj.position.z>sq.z+8){scene.remove(b.obj);const bi=G.blocks.indexOf(b);if(bi>=0)G.blocks.splice(bi,1);}} // 지나친 상자 정리(무한 진행 대비)
+  updFlameFx(dt);
   // projectiles
   for(const p of [...G.projs]){
     if(p.vel&&p.boom){p.mesh.rotation.y+=dt*18;
