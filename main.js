@@ -94,7 +94,7 @@ const CFG={
   finalStage:40, // 8지역 x 5구간 = 40스테이지: 최종 보스(8번째) 격파가 클리어 조건(사용자 승인 11-27)
 };
 const FINAL_BOSS_IDX=CFG.finalStage/CFG.bossEvery;
-function stageMul(n){return n<=1?1:0.42*Math.pow(1.18,Math.min(n,12)-2)*Math.pow(1.09,Math.max(0,n-12));} // 11-27 12:36 사거리 너프(화력 약 절반)에 맞춰 성장 곡선 하향 // 적 체력 배율: 1스테이지=1, 2스테이지부터 1.5배로 뛰고 이후 1.3배씩(12 이후 1.15배씩)
+function stageMul(n){return n<=1?1:0.9*Math.pow(1.3,Math.min(n,12)-2)*Math.pow(1.15,Math.max(0,n-12));} // 11-27 12:36: 구 곡선×0.6 — 너프된 원거리 병종의 처치 타격 수가 전보다 늘어나는 선까지만 하향(상쇄 방지) // 적 체력 배율: 1스테이지=1, 2스테이지부터 1.5배로 뛰고 이후 1.3배씩(12 이후 1.15배씩)
 function blockMul(n){return Math.pow(1.3,Math.min(n,12)-1)*Math.pow(1.15,Math.max(0,n-12));}
 const isBossStage=n=>n>0&&n%CFG.bossEvery===0;
 const CLASSES={
@@ -339,7 +339,7 @@ async function spawnFoe(type,x,z,isBoss=false,wave){
     const gm=await loadG(A+BOSS.u),gb=await loadG(A+bdef.u);const refH=bboxH(gm.scene)*BOSS.s;
     f={...BOSS,u:bdef.u,hp:BOSS.hp*(bdef.hpm||1),s:refH*bdef.m/bboxH(gb.scene),hy:refH*bdef.m+0.8};}
   const rf=regionFoes(stg0); // 지역별 적 보정(조합은 stageLayout이 결정)
-  const hscale=(stg0===1?0.16:stageMul(stg0))*(isBoss?cycleHp():rf.hp*cycleHp()); // 기본 체력 +30% 반영: 1스테이지 계수 0.52→0.16(11-27 12:36 사거리 너프로 아군 화력 반감 — 원작처럼 초반 물량은 종잇장 체력으로 쓸어내는 손맛), 2스테이지부터 상승 곡선 그대로
+  const hscale=(stg0===1?0.31:stageMul(stg0))*(isBoss?cycleHp():rf.hp*cycleHp()); // 기본 체력 +30% 반영: 1스테이지 계수 0.52→0.31(=구 곡선×0.6: 사거리 너프 실효 보존 기준), 2스테이지부터 상승 곡선 그대로
   const sscale=(isBoss?1:Math.min(1.5,1+0.07*(stg0-1))*(stg0===1?0.85:1))*(isBoss?1:rf.spd)*cycleSpd(); // 원작 참고: 단계가 갈수록 적 이동 가속
   const {root,anims}=await makeModel(A+f.u,f.s,isBoss?(bdef.tint||null):[1.05,0.8,0.8]);
   root.position.set(x,0,z);root.rotation.y=0;
@@ -400,19 +400,19 @@ function stageLayout(n){
   if(!isBossStage(n)){
     const foeTypes=regionFoes(n).mix; // 지역별 적 조합(11-27 확장)
     const waves=n===1?9:10+Math.floor(R(0,3)); // 파도 수도 가변
-    let dz=R(11,14);
+    let dz=n===1?R(11,14):R(13,16);
     for(let w=0;w<waves;w++){
       const rush=n>1&&Math.random()<0.2; // 25% 확률 속공 무리(원작 tide의 러너 팩)
-      const cnt=(n===1?3+(w%2):Math.min(16,2+n))+Math.floor(R(0,3))+(rush?3:0); // 무리 크기 가변 — 원작 방향으로 더 많이 뭉침(사용자 11-27 12:36)
+      const cnt=Math.min(16,1+n+Math.floor(w/3))+Math.floor(R(0,3))+(rush?3:0); // 무리 크기 가변·파도가 갈수록 커지는 도입 곡선(모든 스테이지) — 원작 방향으로 더 많이 뭉침(사용자 11-27 12:36)
       const cx=R(-1.8,1.8),hw=R(0.5,1.1); // 통로 이곳저곳에 뭉쳐 등장
       for(let i=0;i<cnt;i++){
         const t=rush?(Math.random()<0.5?'Minion':'Blob'):foeTypes[Math.floor(Math.random()*foeTypes.length)];
         L.push({dz:dz+R(0,1.2),type:'foe',foe:t,x:Math.max(-2,Math.min(2,cx+R(-hw,hw))),wave:w});
       }
-      dz+=R(4.0,5.2); // 파도 간격도 가변(원작: 스폰 간격에 ±20% 잡음)
+      dz+=n===1?R(6.5,8.0):R(4.0,5.2); // 파도 간격도 가변(원작: 스폰 간격에 ±20% 잡음). 1스테이지는 파도가 한 물리씩 도착하도록 간격 확보
     }
     const sx=()=>(Math.random()<0.5?-1:1)*R(1.2,1.8); // 보상 위치·순서 간격 랜덤
-    L.push({dz:R(6,9),type:'chest',x:sx()}); // 첫 상자를 앞당겨 초반 병력 보강
+    L.push({dz:R(5,7),type:'chest',x:sx()}); // 첫 상자를 앞당겨 초반 병력 보강
     L.push({dz:R(19,26),type:'crystal',x:sx()});
     L.push({dz:R(30,36),type:'chest',x:sx()});
     L.push({dz:R(41,47),type:'captive',x:(Math.random()<0.5?-1:1)*R(1.5,1.8)});
@@ -441,7 +441,7 @@ function stageLayout(n){
   return L;
 }
 function setStage(n){
-  G.stage=n;G.layout=stageLayout(n);G.spawned=new Set();G.stageZ0=-CFG.stageLen*(n-1);
+  G.stage=n;G.layout=stageLayout(n);G.spawned=new Set();G.stageZ0=-CFG.stageLen*(n-1);G.waveCur=-1;G.waveT=-1; // -1: 첫 파도는 즉시 도래
   const th=themeOf(n);G.theme=th;
   const nb=Math.ceil(n/CFG.bossEvery)*CFG.bossEvery;
   document.getElementById('stageName').textContent=(NG.cycle>1?NG.cycle+'회차 · ':'')+`스테이지 ${n} · ${th.name}`;
@@ -976,6 +976,10 @@ function update(dt){
   G.layout.forEach((e,i)=>{
     if(G.spawned.has(i))return;
     if(e.z<sq.z-34)return; // 예지 24->34: 다음 구간 파도가 전환 전에 미리 접근을 시작해 스테이지 경계의 전투 공백 제거(사용자 11-27)
+    if(e.type==='foe'&&typeof e.wave==='number'&&e.wave>G.waveCur){ // 파도 순차 도래(0.8s 간격): 스테이지 경계에서 34 예지 범위 파도가 한꺼번에 쏟아지는 폭주 방지 — spawned 표기 전에 판정해야 파도가 유실되지 않음
+      if(G.gtime-G.waveT<0.8)return;
+      G.waveCur=e.wave;G.waveT=G.gtime;
+    }
     G.spawned.add(i);
     if(e.type==='foe'){if(!BOSSONLY)spawnFoe(e.foe,e.x,e.z,false,e.wave);}
     else if(e.type==='boss')spawnFoe(null,e.x,e.z,true,e.wave);
