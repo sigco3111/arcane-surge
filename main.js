@@ -98,7 +98,7 @@ function stageMul(n){return n<=1?1:0.9*Math.pow(1.3,Math.min(n,12)-2)*Math.pow(1
 function blockMul(n){return Math.pow(1.3,Math.min(n,12)-1)*Math.pow(1.15,Math.max(0,n-12));}
 const isBossStage=n=>n>0&&n%CFG.bossEvery===0;
 const CLASSES={
-  Knight:{u:'Knight.glb',s:0.47,dmg:7.2,cd:0.9,range:9.5,kind:'bolt',color:0xffe27a,hitEfk:'hit',fxScale:0.22,fxSpeed:2.1,anim:'1H_Melee_Attack_Stab',w:{slot:'handslotr',u:'weapons/spear_A.gltf'}},
+  Knight:{u:'Knight.glb',s:0.47,dmg:7.92,cd:0.9,range:9.5,kind:'bolt',color:0xffe27a,hitEfk:'hit',fxScale:0.22,fxSpeed:2.1,anim:'1H_Melee_Attack_Stab',w:{slot:'handslotr',u:'weapons/spear_A.gltf'}}, // 기본 피해 7.2→7.92 (+10%, 사용자 11-27 18:21)
   Barbarian:{u:'Barbarian.glb',s:0.40,dmg:14,cd:1.25,range:9.5,kind:'wave',color:0xff7a2a,hitEfk:'hit',fxScale:0.1,fxSpeed:2.4,anim:'2H_Melee_Attack_Spin',blockMul:3}, // 상자·방벽 파괴 전담(개편안): 블록 피해 3배. hit로 교체: ember 잔여 화염이 다중 명중 피크에서 누적되는 문제 차단
   Rogue:{u:'Rogue.glb',s:0.47,dmg:4,cd:0.55,range:10.5,kind:'shard',color:0x9fdcff,hitEfk:'cold',fxScale:0.11,fxSpeed:2.6,anim:'2H_Ranged_Shoot',w:{slot:'handslotl',u:'weapons/bow_A_withString.gltf'}},
   Mage:{u:'Mage.glb',s:0.38,dmg:9,cd:1.15,range:10.5,kind:'fire',color:0xff7a2a,hitEfk:'flame',fxScale:0.11,fxSpeed:2.8,anim:'Spellcast_Shoot',w:{slot:'handslotr',u:'weapons/wand.gltf'}},
@@ -117,7 +117,7 @@ const GROWTH={ // 탄수 초반 가속(사용자 07:44 "5명까지 탄 수"·매
 const REF_S={Knight:[0,1,1,1,2,2,3,3,3,4,4,5,5,5,6,6,7],Rogue:[0,1,1,1,1,1,2,2,2,3,3,3,3,3,4,4,5],Mage:[0,1,1,1,1,1,2,2,2,2,2,3,3,3,4,4,5],Barbarian:[0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],Rogue_Hooded:[0,1,1,1,2,2,2,3,3,3,3,4,4,4,5,5,5]}; // 정규화 기준: 이전 탄수 곡선(총화력 유지용)
 // 실효 공격 배율 = 누적 배율을 스테이지 곡선 봉투로 상한(사용자 11-27 16:37 "후반으로 갈수록 너무 쉬워짐"): 성장은 스테이지 진행에 묶이고, 레벨/수정/단련은 봉투까지의 속도만 결정 — 후반 폭발적 격차 원천 차단
 const effMul=()=>Math.min(G.dmgMul,2.2*Math.pow(stageMul(G.stage),0.9));
-function refDps(n){const m=Math.min(16,1+3*(n-1));const gr=growth('Knight',m);const c=CLASSES.Knight; // 구간 기준 화력: 나이트·구간별 기대 인원·봉투 배율의 기준 편성(보스 체력 산정 전용)
+function refDps(n){const m=Math.min(16,1+3*(n-1));const gr=growth('Knight',m);const c={...CLASSES.Knight,dmg:7.2}; // 구간 기준 화력: 나이트·구간별 기대 인원·봉투 배율의 기준 편성(보스 체력 산정 전용) // dmg는 개편 전 7.2 고정 — 나이트 강화(7.92)와 무관하게 보스 체력 직전 버전 유지(사용자 방침 11-27 18:37)
   const per=c.dmg*(2.2*Math.pow(stageMul(n),0.9))*(gr.dmg||1)*FORCE(m)*RANGE_DMG(c.range);
   const cyc=Math.max(0.08,c.cd*(gr.rate||1))+0.09*Math.max(0,(gr.burst||1)-1);
   return per*(gr.burst||1)/cyc;}
@@ -152,7 +152,7 @@ const EXTRA_CYCLE=['Rogue_Hooded','Mage','Knight','Barbarian','Ranger','Glaive',
 const _B=(b,o)=>({...CLASSES[b],...o});
 CLASSES.Ranger=_B('Rogue',{kind:'spread',dmg:8,cd:1.0,range:16,color:0x8fe08a,hitEfk:'hit',fxScale:0.11,fxSpeed:2.6}); // 기본 피해 7→8 (사용자 11-27 17:51 승인) // maxD 제거: 개편 사거리 16에 맞춰 탄 도달 거리도 연장
 CLASSES.Glaive=_B('Barbarian',{kind:'boomerang',dmg:8,cd:1.4,range:10,color:0xffc84a,hitEfk:'hit',fxScale:0.12,fxSpeed:2.4,anim:'2H_Melee_Attack_Slice'});
-CLASSES.Sorcerer=_B('Mage',{kind:'chain',dmg:9,cd:1.1,range:10,color:0xbfe6ff,hitEfk:'hit',fxScale:0.14,fxSpeed:2.6}); // 기본 피해 6→9 (사용자 11-27 17:51 승인)
+CLASSES.Sorcerer=_B('Mage',{kind:'chain',dmg:18,cd:1.1,range:10,color:0xbfe6ff,hitEfk:'hit',fxScale:0.14,fxSpeed:2.6}); // 기본 피해 9→18 두 배 (사용자 11-27 18:22)
 CLASSES.FrostLancer=_B('Knight',{kind:'lance',dmg:5,cd:0.8,range:15,color:0x7fd8ff,hitEfk:'cold',fxScale:0.11,fxSpeed:2.6});
 CLASSES.Pyro=_B('Mage',{kind:'flame',dmg:6,cd:0.3,range:16,color:0xff8a2a,hitEfk:'hit',fxScale:0.1,fxSpeed:2.6}); // 지속 화염 고화력(개편안): DPS 2배급 상향, 사거리도 16으로
 CLASSES.Prism=_B('Rogue_Hooded',{kind:'beam',dmg:2.2,cd:0.25,range:16,color:0xe6c8ff,hitEfk:'hit',fxScale:0.1,fxSpeed:2.6,homing:false});
@@ -578,7 +578,7 @@ function fireSpecial(c,gr,t,from,tp,dmg,n){
   if(k==='flame'){
     const len=c.range;
     for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)]){const p=o.obj.position;const dz=from.z-p.z;if(dz<=0||dz>len)continue;if(Math.abs(p.x-aimX(p.z))>1.2)continue;damage(o,dmg,'skill');}
-    for(let i=1;i<=3;i++){const q=new THREE.Vector3(aimX(from.z-i*1.2),0.6,from.z-i*1.2);efkPlay('fireball',q,0.12+0.03*i,2.2);}efkPlay('flame',new THREE.Vector3(aimX(from.z-2.4),0.4,from.z-2.4),0.12,2.0);return;}
+    for(let i=1;i<=3;i++){const q=new THREE.Vector3(aimX(from.z-i*1.2),0.6,from.z-i*1.2);efkPlay('fireball',q,0.12+0.03*i,2.2);}{const fh=efkPlay('flame',new THREE.Vector3(aimX(from.z-2.4),0.4,from.z-2.4),0.12,2.0);if(fh){try{fh.setRotation(0,Math.PI,0);}catch(e){}}}return;} // Flame.efk 제트가 +Z(부대 쪽)로 분사되어 발사가 거꾸로 보임 → 전방(-Z)으로 회전 (사용자 11-27 18:21 제보)
   if(k==='beam'){
     const len=c.range;for(let i=0;i<5;i++){const zz=from.z-1.5-i*3.2;efkPlay('aura',new THREE.Vector3(aimX(zz),0.9,zz),0.16,2.4);}
     for(const o of [...foesAlive(),...G.blocks.filter(b=>b.hp>0)]){const p=o.obj.position;const dz=from.z-p.z;if(dz<=0||dz>len)continue;if(Math.abs(p.x-aimX(p.z))>0.4)continue;damage(o,dmg,'skill');if(o.kind==='foe'&&!(G.sparkT>0)){efkPlay('thunder',new THREE.Vector3(p.x,0,p.z),0.1,2.2);G.sparkT=0.12;}}return;}
