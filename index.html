@@ -58,6 +58,10 @@
   .dash .stack{display:flex;height:14px;border-radius:7px;overflow:hidden;background:rgba(255,255,255,.08);} .dash .stack i{display:block;height:100%;}
   .dash .br{display:flex;align-items:center;gap:6px;margin:3px 0;font-size:12px;} .dash .bl{width:86px;color:#cfd8f0;} .dash .bt{flex:1;height:9px;background:rgba(255,255,255,.08);border-radius:5px;overflow:hidden;} .dash .bt i{display:block;height:100%;border-radius:5px;} .dash .bv{width:44px;text-align:right;}
   #end .go{margin-top:20px;}
+  #ngPanel{margin-top:6px;}
+  .nginfo{font-size:12px;color:#ffe9a8;line-height:1.6;margin:2px 0 8px;}
+  .ngbtns{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+  .ngbtn{margin-top:0 !important;padding:10px 16px;font-size:14px;border-radius:10px;}
   .fps{position:fixed;left:10px;bottom:10px;color:#9fb3d8;font-size:10px;z-index:5;opacity:.8;pointer-events:none;}
 </style>
 </head>
@@ -77,7 +81,8 @@
 <div class="banner" id="banner"></div>
 <div class="overlay" id="title">
   <h1>아케인 서지</h1>
-  <p>끝없이 이어지는 길을 걸어 최고 거리를 갱신하세요.<br>소대를 좌우로 드래그(PC는 ←/→ 또는 A/D 키)해 이동합니다.<br>공격은 자동입니다. 보물상자를 부수면 대원이 늘어나고, 5스테이지마다 보스가 나타납니다.</p>
+  <p>8개 지역 · 40스테이지 끝의 최종 보스를 쓰러뜨리세요.<br>소대를 좌우로 드래그(PC는 ←/→ 또는 A/D 키)해 이동합니다.<br>공격은 자동입니다. 보물상자를 부수면 대원이 늘어나고, 5스테이지마다 보스가 나타납니다.<br>클리어하면 해금된 병종으로 더 강한 다음 회차(NG+)에 도전할 수 있습니다.</p>
+  <p id="titleInfo" style="font-size:12px;color:#ffe9a8;margin-top:-12px;"></p>
   <button class="go" id="startBtn" disabled>로딩 중… 0%</button>
 </div>
 <div class="overlay hidden" id="end">

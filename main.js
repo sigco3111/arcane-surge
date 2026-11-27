@@ -90,8 +90,10 @@ const CFG={
   fwdSpeed:2.3, dragClamp:2.1, defLine:2.6, // 전진 1.7->2.3(+35%) (사용자 11-27: 전진이 답답·난이도 좀 쉬움 — 속도 상향으로 진행 압박도 함께 상승. 2.6 시험 결과 1스테이지 첫 파도 돌파 여유 7.1s->4.5s로 과하게 급변해 2.3으로 조정)
   lives:5, killsPerLevel:8, levelMul:1.15,
   stageLen:55,
-  bossEvery:5, // 5스테이지마다 보스, 보스 격파 후에도 계속 진행(무한 런) / 지역(맵 테마)은 보스 이후 바뀜
+  bossEvery:5, // 5스테이지마다 보스 / 지역(맵 테마)은 보스 이후 바뀜
+  finalStage:40, // 8지역 x 5구간 = 40스테이지: 최종 보스(8번째) 격파가 클리어 조건(사용자 승인 11-27)
 };
+const FINAL_BOSS_IDX=CFG.finalStage/CFG.bossEvery;
 function stageMul(n){return n<=1?1:1.5*Math.pow(1.3,Math.min(n,12)-2)*Math.pow(1.15,Math.max(0,n-12));} // 적 체력 배율: 1스테이지=1, 2스테이지부터 1.5배로 뛰고 이후 1.3배씩(12 이후 1.15배씩)
 function blockMul(n){return Math.pow(1.3,Math.min(n,12)-1)*Math.pow(1.15,Math.max(0,n-12));}
 const isBossStage=n=>n>0&&n%CFG.bossEvery===0;
@@ -180,7 +182,20 @@ const DART=!!new URLSearchParams(location.search).get('dart'); // 시연: 원작
 const PSPD=DART?58:30; // 효과 청취 전용: id=경로,id=경로
 const BOSS={u:'bosses/Mushnub_Evolved.gltf',hp:750,spd:1.2,s:0.95,rr:1.3,gltf:true}; // 개편 보정: 보스 체력 +30% // 접근 1.9->1.2: 전진 2.6과 합산 상대속도 3.8로 기존(3.6) 수준 유지 — 보스전 시간 동일
 const BOSSES=[{u:'bosses/Mushnub_Evolved.gltf',name:'머쉬넙',m:1},{u:'bosses/Orc.gltf',name:'오크 대장',m:1.15},{u:'bosses/Cyclops.gltf',name:'사이클롭스',m:1.3},
-  {u:'bosses/Yeti.gltf',name:'예티',m:1.2},{u:'bosses/YellowDragon.gltf',name:'황금 드래곤',m:1.25},{u:'bosses/Cthulhu.gltf',name:'심연의 군주',m:1.2}]; // 보스 순환(원 보스 크기 기준으로 자동 정규화)
+  {u:'bosses/Yeti.gltf',name:'예티',m:1.2},{u:'bosses/YellowDragon.gltf',name:'황금 드래곤',m:1.25},{u:'bosses/Cthulhu.gltf',name:'심연의 군주',m:1.2,hpm:1.1},
+  {u:'cute/Demon.gltf',name:'혼돈의 데몬',m:1.35,hpm:1.2},{u:'cute/GreenDemon.gltf',name:'종말의 마왕',m:1.65,hpm:1.55,tint:[0.62,0.4,0.85]}]; // 보스 순환(원 보스 크기 기준으로 자동 정규화), hpm=체력 배율
+const REGION_FOES=[ // 지역별 적 구성·보정(11-27 확장): 후반 지역일수록 강한 조합
+  {mix:['Warrior','Warrior','Minion','Rogue'],hp:1,spd:1},           // 1 시작의 들판
+  {mix:['Warrior','Minion','Rogue','Rogue','Mage'],hp:1.05,spd:1},    // 2 단풍 숲길: 도적 다수
+  {mix:['Minion','Blob','Blob','Minion','Warrior'],hp:0.9,spd:1.15},  // 3 설원: 빠른 물량
+  {mix:['Warrior','Warrior','Mage','Mage','Blob'],hp:1.2,spd:0.95},   // 4 화산: 단단한 전사·마법사
+  {mix:['Rogue','Mage','Blob','Blob','Minion'],hp:1.05,spd:1.1},      // 5 신비의 늪
+  {mix:['Warrior','Mage','Rogue','Blob','Warrior'],hp:1.25,spd:1},    // 6 황혼의 황무지
+  {mix:['Mage','Mage','Rogue','Warrior','Blob'],hp:1.35,spd:1.05},    // 7 고대 유적: 마법사 중심
+  {mix:['Warrior','Blob','Mage','Rogue','Blob','Warrior'],hp:1.5,spd:1.1}, // 8 종말의 심연
+];
+const regionOf=n=>Math.floor((Math.max(1,n)-1)/CFG.bossEvery);
+const regionFoes=n=>REGION_FOES[regionOf(n)%REGION_FOES.length];
 const bboxH=o=>{const b=new THREE.Box3().setFromObject(o);return Math.max(0.01,b.max.y-b.min.y);};
 
 // ---------- state ----------
@@ -190,6 +205,16 @@ const G={state:'title',stage:1,lives:CFG.lives,kills:0,level:1,dmgMul:1,statV:0,
 const BEST_KEY='arcaneSurgeBestDistance_v1';
 let BEST=0;try{BEST=parseInt(localStorage.getItem(BEST_KEY))||0;}catch(e){}
 function saveBest(d){if(d>BEST){BEST=d;try{localStorage.setItem(BEST_KEY,String(d));}catch(e){}}}
+// ---- 다회차(NG+): 해금 병종은 영구 유지, 클리어 시 시작 편성을 골라 다음 회차로(사용자 승인 11-25 15:16) ----
+const NG_KEY='arcaneSurgeNG_v1';
+let NG={cycle:1,victories:0,unlocked:['Knight'],carry:null};
+try{const r=JSON.parse(localStorage.getItem(NG_KEY));if(r&&r.cycle)NG={cycle:r.cycle|0,victories:r.victories|0,unlocked:Array.isArray(r.unlocked)&&r.unlocked.length?r.unlocked.filter(c=>CLASSES[c]):['Knight'],carry:r.carry&&CLASSES[r.carry.cls]?r.carry:null};}catch(e){}
+if(!NG.unlocked.length)NG.unlocked=['Knight'];
+function saveNG(){try{localStorage.setItem(NG_KEY,JSON.stringify(NG));}catch(e){}}
+function unlockCls(cls){if(CLASSES[cls]&&!NG.unlocked.includes(cls)){NG.unlocked.push(cls);saveNG();}}
+const cycleHp=()=>1+0.45*(NG.cycle-1);   // 회차당 적 체력 +45%
+const cycleSpd=()=>Math.min(1.35,1+0.06*(NG.cycle-1)); // 회차당 적 속도 +6%(상한 1.35)
+const cycleDmg=()=>1+0.10*(NG.cycle-1);  // 회차당 시작 공격력 +10%
 G.prevBest=BEST; // 이번 판 시작 시점의 최고 기록(신기록 판정 기준)
 G.st={kills:{},dmg:{basic:0,skill:0,magic:0},magic:{tornado:0,meteo:0,thunder:0},chests:0,captives:0,crystals:0,maxCombo:0,maxSquad:1,maxLevel:1,breach:0,bossKills:0,series:[],stageT:{},kStage:{},life:[],lastS:-1};
 window.__game=G;
@@ -210,6 +235,9 @@ const THEMES=[
  {name:'설원',sky:C(0xc7d9ee),fog:C(0xdbe7f4),ground:0xe1ebf4,path:0xb2bfcd,hemi:C(0xdbeaff),hemiG:C(0x9fb0c4),tint:[1.35,1.55,1.9]},
  {name:'잿빛 화산지대',sky:C(0x4b2a38),fog:C(0x5e3440),ground:0x3b2a2c,path:0x57362e,hemi:C(0xffb08a),hemiG:C(0x4a2a24),tint:[0.95,0.5,0.42]},
  {name:'신비의 늪',sky:C(0x2d2a5c),fog:C(0x3d3774),ground:0x35305c,path:0x5a4a7a,hemi:C(0xb9aaff),hemiG:C(0x2a2450),tint:[0.65,0.6,1.35]},
+ {name:'황혼의 황무지',sky:C(0xe09a5c),fog:C(0xeab084),ground:0x9a6b3d,path:0x7d5230,hemi:C(0xffd0a0),hemiG:C(0x6b4526),tint:[1.5,0.95,0.55]},
+ {name:'고대 유적',sky:C(0x8fa8b8),fog:C(0xa9bec9),ground:0x5e6b66,path:0x8a8f85,hemi:C(0xcfe0e8),hemiG:C(0x46524c),tint:[0.8,0.95,0.9]},
+ {name:'종말의 심연',sky:C(0x2a1020),fog:C(0x381428),ground:0x2c1a26,path:0x4a2438,hemi:C(0xff7a6a),hemiG:C(0x3a1a2a),tint:[0.9,0.45,0.6]},
 ];
 const themeOf=n=>THEMES[(Math.floor((Math.max(1,n)-1)/CFG.bossEvery)%THEMES.length+THEMES.length)%THEMES.length];
 const REGION_Z=CFG.stageLen*CFG.bossEvery;
@@ -305,15 +333,16 @@ function layoutSquad(){ // 뭉친 대형: 황금각 나선 배치, 인원이 늘
 
 async function spawnFoe(type,x,z,isBoss=false,wave){
   const stg0=G.stage; // 비동기 로딩 중 스테이지가 바뀌어도 스폰 시점 스테이지 기준 유지
-  let f=isBoss?BOSS:FOES[type];let bdef=null;
-  if(isBoss){bdef=BOSSES[(Math.floor(stg0/CFG.bossEvery)-1+BOSSES.length*100)%BOSSES.length];
+  let f=isBoss?BOSS:FOES[type];let bdef=null;let bossIdx=0;
+  if(isBoss){bossIdx=Math.floor(stg0/CFG.bossEvery);bdef=BOSSES[(bossIdx-1+BOSSES.length*100)%BOSSES.length];
     const gm=await loadG(A+BOSS.u),gb=await loadG(A+bdef.u);const refH=bboxH(gm.scene)*BOSS.s;
-    f={...BOSS,u:bdef.u,s:refH*bdef.m/bboxH(gb.scene),hy:refH*bdef.m+0.8};}
-  const hscale=stg0===1?0.52:stageMul(stg0); // 기본 체력 +30% 반영: 1스테이지 계수 0.75→0.52로 실효 난이도 유지, 2스테이지부터 상승 곡선 그대로
-  const sscale=isBoss?1:Math.min(1.5,1+0.07*(stg0-1))*(stg0===1?0.85:1); // 원작 참고: 단계가 갈수록 적 이동 가속
-  const {root,anims}=await makeModel(A+f.u,f.s,isBoss?null:[1.05,0.8,0.8]);
+    f={...BOSS,u:bdef.u,hp:BOSS.hp*(bdef.hpm||1),s:refH*bdef.m/bboxH(gb.scene),hy:refH*bdef.m+0.8};}
+  const rf=regionFoes(stg0); // 지역별 적 보정(조합은 stageLayout이 결정)
+  const hscale=(stg0===1?0.52:stageMul(stg0))*(isBoss?cycleHp():rf.hp*cycleHp()); // 기본 체력 +30% 반영: 1스테이지 계수 0.75→0.52로 실효 난이도 유지, 2스테이지부터 상승 곡선 그대로
+  const sscale=(isBoss?1:Math.min(1.5,1+0.07*(stg0-1))*(stg0===1?0.85:1))*(isBoss?1:rf.spd)*cycleSpd(); // 원작 참고: 단계가 갈수록 적 이동 가속
+  const {root,anims}=await makeModel(A+f.u,f.s,isBoss?(bdef.tint||null):[1.05,0.8,0.8]);
   root.position.set(x,0,z);root.rotation.y=0;
-  const unit={kind:'foe',type,isBoss,bossName:bdef?bdef.name:null,hp:Math.round(f.hp*hscale),maxHp:Math.round(f.hp*hscale),cfg:f,spd:f.spd*sscale,obj:root,hitT:0,...makeMixer(root,anims)};
+  const unit={kind:'foe',type,isBoss,bossIdx,bossName:bdef?bdef.name:null,hp:Math.round(f.hp*hscale),maxHp:Math.round(f.hp*hscale),cfg:f,spd:f.spd*sscale,obj:root,hitT:0,...makeMixer(root,anims)};
   const walk=unit.acts.Walking_A||unit.acts.Walk||unit.acts.Flying;if(walk){walk.play();walk.time=Math.random();}
   const rr=ring(0xff2233,f.rr);rr.position.y=0.035;root.add(rr);
   const fd=new THREE.Mesh(new THREE.CircleGeometry(f.rr*1.15,28),new THREE.MeshBasicMaterial({color:0xff2233,transparent:true,opacity:0.2,depthWrite:false}));
@@ -330,7 +359,9 @@ async function spawnFoe(type,x,z,isBoss=false,wave){
     if(!g){g={hp:0,maxHp:0,members:new Set(),num:makeNumSprite(0)};g.num.sprite.position.set(x,2.9,z);scene.add(g.num.sprite);G.waveGrps[key]=g;}
     g.members.add(unit);g.hp+=unit.maxHp;g.maxHp+=unit.maxHp;drawNum(g.num,Math.ceil(g.hp));
     unit.wave=key;unit.wgrp=g;}
-  if(isBoss){G.boss=unit;unit.phase=0;G.bossDead=false;showBanner('⚔ 보스 출현','스테이지 '+G.stage+' · '+unit.bossName,'boss',2200);}
+  if(isBoss){G.boss=unit;unit.phase=0;G.bossDead=false;
+    if(bossIdx===FINAL_BOSS_IDX)showBanner('⚔ 최종 보스 출현','스테이지 '+G.stage+' · '+unit.bossName+' — 쓰러뜨리면 클리어!','boss',2600);
+    else showBanner('⚔ 보스 출현','스테이지 '+G.stage+' · '+unit.bossName,'boss',2200);}
   return unit;
 }
 
@@ -355,7 +386,7 @@ async function spawnBlock(kind,x,z){
     grp.userData.tag=tag;
   }
   grp.add(discShadow(0.5));
-  const bhp=Math.round(REC_DPS*blockMul(G.stage)*4.2); // 구간 권장 화력 x 약 4.2초(전진 가속으로 사거리 체류 8.2s->5.4s로 줄어 6초는 파괴 불가 — 동일 파괴 여유 유지), 스폰 시점 고정(현재 공격 배율과 무관 — 제안서) // 원작 참고: 진행할수록 상자 수치 증가
+  const bhp=Math.round(REC_DPS*blockMul(G.stage)*4.2*(1+0.3*(NG.cycle-1))); // 구간 권장 화력 x 약 4.2초(전진 가속으로 사거리 체류 8.2s->5.4s로 줄어 6초는 파괴 불가 — 동일 파괴 여유 유지), 스폰 시점 고정(현재 공격 배율과 무관 — 제안서) // 원작 참고: 진행할수록 상자 수치 증가 · 회차당 +30%
   const unit={kind:'block',btype:kind,hp:bhp,maxHp:bhp,obj:grp,hitT:0};
   const num=makeNumSprite(bhp);num.sprite.position.y=1.55;grp.add(num.sprite);unit.hpNum=num;
   scene.add(grp);G.blocks.push(unit);
@@ -365,12 +396,12 @@ async function spawnBlock(kind,x,z){
 function stageLayout(n){
   const L=[];const z0=-CFG.stageLen*(n-1);
   if(!isBossStage(n)){
-    const foeTypes=['Warrior','Minion','Rogue','Mage'];
+    const foeTypes=regionFoes(n).mix; // 지역별 적 조합(11-27 확장)
     [16,22,28,34,40,46,52,58].forEach((dz,w)=>{ // 배치 압축(11-27: 빈 이동 구간 제거) — 첫 파도 16부터 6 간격, 마지막 파도는 다음 구간 초반까지 이어짐
       const cnt=n===1?2+(w%2):Math.min(8,3+n); // 1스테이지는 파도당 2~3마리, 2스테이지부터 늘어남(상한 8)
       const cx=[-1.4,1.6,-0.6,1.2,-1.8,0.9,-1.2,1.7][w%8]; // 원작처럼 파도가 통로 이곳저곳에 뭉쳐 나옴 — 가만히 서 있으면 맞지 않는 파도가 생김
       for(let i=0;i<cnt;i++){
-        const t=foeTypes[(w+i+n)%4];
+        const t=foeTypes[(w+i+n)%foeTypes.length];
         L.push({dz:dz+ (i%2)*1.6, type:'foe',foe:t,x:cx+((i*47)%10)/10*1.4-0.7,wave:w});
       }
     });
@@ -379,21 +410,22 @@ function stageLayout(n){
     L.push({dz:32,type:'chest',x:1.6}); // 상자 2개/구간으로 보상 간격 축소
     L.push({dz:44,type:'captive',x:n%2?1.7:-1.7}); // 구간당 감옥 1개, 통로 가장자리(회피 가능)
   }else{
-    L.push({dz:8,type:'foe',foe:'Warrior',x:0.9,wave:0});
-    L.push({dz:11,type:'foe',foe:'Minion',x:1.8,wave:0});
-    L.push({dz:15,type:'foe',foe:'Rogue',x:1.2,wave:1});
-    L.push({dz:19,type:'foe',foe:'Minion',x:0.6,wave:1});
-    L.push({dz:21,type:'foe',foe:'Mage',x:1.7,wave:2});
-    L.push({dz:23,type:'foe',foe:'Minion',x:0.8,wave:2});
+    const rf=regionFoes(n).mix,pick=k=>rf[k%rf.length]; // 보스 구간 잔졸도 지역 조합을 따름
+    L.push({dz:8,type:'foe',foe:pick(0),x:0.9,wave:0});
+    L.push({dz:11,type:'foe',foe:pick(1),x:1.8,wave:0});
+    L.push({dz:15,type:'foe',foe:pick(2),x:1.2,wave:1});
+    L.push({dz:19,type:'foe',foe:pick(1),x:0.6,wave:1});
+    L.push({dz:21,type:'foe',foe:pick(3),x:1.7,wave:2});
+    L.push({dz:23,type:'foe',foe:pick(1),x:0.8,wave:2});
     L.push({dz:25,type:'boss',x:0,wave:'boss'});
-    L.push({dz:33,type:'foe',foe:'Minion',x:1.3,wave:3}); // 보스 이후 빈 구간 제거(11-27): 격파 후에도 흐름이 이어지도록 잔여 파도 2줄
-    L.push({dz:34,type:'foe',foe:'Warrior',x:-1.2,wave:3});
-    L.push({dz:38,type:'foe',foe:'Rogue',x:0.4,wave:4});
-    L.push({dz:39,type:'foe',foe:'Minion',x:-1.6,wave:4});
-    L.push({dz:46,type:'foe',foe:'Warrior',x:-0.9,wave:5}); // 보스 결전 중에도 잔졸이 계속 도래 — 장기전 중 처치 공백(측정 최대 12초) 방지
-    L.push({dz:47,type:'foe',foe:'Minion',x:1.5,wave:5});
-    L.push({dz:51,type:'foe',foe:'Rogue',x:-1.4,wave:6});
-    L.push({dz:52,type:'foe',foe:'Blob',x:0.8,wave:6});
+    L.push({dz:33,type:'foe',foe:pick(1),x:1.3,wave:3}); // 보스 이후 빈 구간 제거(11-27): 격파 후에도 흐름이 이어지도록 잔여 파도 2줄
+    L.push({dz:34,type:'foe',foe:pick(0),x:-1.2,wave:3});
+    L.push({dz:38,type:'foe',foe:pick(2),x:0.4,wave:4});
+    L.push({dz:39,type:'foe',foe:pick(1),x:-1.6,wave:4});
+    L.push({dz:46,type:'foe',foe:pick(0),x:-0.9,wave:5}); // 보스 결전 중에도 잔졸이 계속 도래 — 장기전 중 처치 공백(측정 최대 12초) 방지
+    L.push({dz:47,type:'foe',foe:pick(1),x:1.5,wave:5});
+    L.push({dz:51,type:'foe',foe:pick(2),x:-1.4,wave:6});
+    L.push({dz:52,type:'foe',foe:pick(4),x:0.8,wave:6});
     L.push({dz:42,type:'chest',x:1.6}); // 보스 격파 보상: 이어서 계속 진행
     L.push({dz:51,type:'captive',x:-1.7});
   }
@@ -404,8 +436,8 @@ function setStage(n){
   G.stage=n;G.layout=stageLayout(n);G.spawned=new Set();G.stageZ0=-CFG.stageLen*(n-1);
   const th=themeOf(n);G.theme=th;
   const nb=Math.ceil(n/CFG.bossEvery)*CFG.bossEvery;
-  document.getElementById('stageName').textContent=`스테이지 ${n} · ${th.name}`;
-  document.getElementById('sub').textContent=isBossStage(n)?'⚔ 보스 스테이지':`보스: 스테이지 ${nb}`;
+  document.getElementById('stageName').textContent=(NG.cycle>1?NG.cycle+'회차 · ':'')+`스테이지 ${n} · ${th.name}`;
+  document.getElementById('sub').textContent=n===CFG.finalStage?'⚔ 최종 보스':(isBossStage(n)?'⚔ 보스 스테이지':(n<CFG.finalStage?`보스: 스테이지 ${nb}`:'무한 진행'));
   if(G.st){G.st.stageT[n]=G.gtime||0;
     if(n>1&&!isBossStage(n))showBanner('스테이지 '+n,n%CFG.bossEvery===1?'새로운 지역 · '+th.name:'','stage',1400);}
 }
@@ -593,6 +625,7 @@ function nearestTarget(unit){
   return best;
 }
 async function convertSquad(cls){ // 통일 부대 전환: 진화 단계(인원 파생)·레벨·공격력 배율·생명 유지, 병종만 교체
+  unlockCls(cls); // 한 번 전환한 병종은 영구 해금(다회차 시작 편성 후보)
   if(G.cls===cls){if(G.allies.length<16)await spawnAlly(cls);return;}
   G.cls=cls;
   for(const p of [...G.projs]){if(p.efkH){try{p.efkH.stop();}catch(e){}}scene.remove(p.mesh);}G.projs.length=0; // 전환 시 기존 비행탄 제거
@@ -662,8 +695,10 @@ function killUnit(t){
     if(t.wgrp){t.wgrp.members.delete(t);if(t.wgrp.members.size===0){scene.remove(t.wgrp.num.sprite);delete G.waveGrps[t.wave];}}
     t.deadT=1.1;
     if(t.isBoss){G.bossDead=true;G.st.bossKills++;bossPhase(t);
-      if(G.lives<CFG.lives)G.lives++; // 보스 격파 보상: 생명 +1(최대치까지) — 끊김 없이 계속 진행
-      showBanner('🏆 보스 격파!',(t.bossName||'보스')+' 처치 · 계속 전진','boss',2600);}
+      if(t.bossIdx===FINAL_BOSS_IDX){showBanner('🏆 최종 보스 격파!',(t.bossName||'보스')+' 처치','boss',2600);
+        G.q.push({t:1.8,fn:()=>victory()});}
+      else{if(G.lives<CFG.lives)G.lives++; // 보스 격파 보상: 생명 +1(최대치까지) — 끊김 없이 계속 진행
+        showBanner('🏆 보스 격파!',(t.bossName||'보스')+' 처치 · 계속 전진','boss',2600);}}
   }else if(t.kind==='block'){
     const p=t.obj.position.clone();p.y=1;
     if(t.btype==='chest'){G.st.chests++;
@@ -735,7 +770,11 @@ async function init(){
     const mkG=()=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(0.07,11),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.10,depthWrite:false}));
       m.rotation.x=-Math.PI/2;scene.add(m);return m;};
     G.guideL=mkG();G.guideR=mkG();}
-  for(const c of START_SQUAD)await spawnAlly(c);
+  G.cycle=NG.cycle;
+  const form=NG.carry||{cls:START_SQUAD[0],n:START_SQUAD.length}; // 다회차: 선택한 시작 편성(클리어 시 선택)
+  G.cls=form.cls;unlockCls(form.cls);
+  for(let i=0;i<Math.min(16,form.n);i++)await spawnAlly(form.cls);
+  G.dmgMul=cycleDmg();
   const stg=parseInt(new URLSearchParams(location.search).get('stage'))||1; // 테스트용 구간 건너뛰기
   if(stg>1){
     for(let i=0;i<3;i++)await spawnAlly(G.cls);G.extra=3;
@@ -750,6 +789,7 @@ async function init(){
   window.G=G;window.__efk=()=>efk?Object.keys(efk.eff):null;window.__efkPlay=(id,x,y,z,s,sp)=>efkPlay(id,{x,y,z},s||0.8,sp||1);window.__efkStop=()=>{if(efk)efk.ctx.stopAll();}; // 테스트 훅
   await pre; // 전 에셋 예비 로드 완료 대기
   const sb=$('startBtn');sb.disabled=false;sb.textContent='게임 시작';
+  if(NG.cycle>1||NG.victories>0){const ti=$('titleInfo');if(ti)ti.textContent=NG.cycle+'회차 진행 중 · 클리어 '+NG.victories+'회 · 해금 병종 '+NG.unlocked.length+'/'+Object.keys(CLASSES).length;}
   sb.addEventListener('click',()=>{$('title').classList.add('hidden');G.state='play';});
   $('retryBtn').addEventListener('click',()=>location.reload());
   requestAnimationFrame(tick);
@@ -803,6 +843,26 @@ function endGame(cause){
   sample(true);const rec=dist>G.prevBest&&dist>0;saveBest(dist);
   $('endTitle').textContent='게임 오버';
   $('endBody').innerHTML=dashHTML(dist,rec,cause==='boss'?'보스가 방어선을 돌파했습니다':'적의 돌파로 생명이 모두 소진되었습니다');
+  $('retryBtn').classList.remove('hidden');
+  $('end').classList.remove('hidden');$('end').scrollTop=0;
+}
+function carryCount(){return Math.min(8,Math.max(2,Math.ceil(G.st.maxSquad/2)));} // 이월 편성 규모: 이번 판 최대 대원의 절반(2~8명) — 수치는 플레이 테스트로 조정 예정(사용자 승인 11-25)
+function victory(){ // 40스테이지 최종 보스 격파: 클리어 대시보드 + 다음 회차(NG+) 시작 편성 선택
+  if(G.state==='win')return;
+  G.state='win';
+  NG.victories++;saveNG();
+  const dist=Math.max(0,Math.floor(-G.squad.position.z));
+  sample(true);saveBest(dist);
+  $('endTitle').textContent='🏆 아케인 서지 클리어!';
+  $('endBody').innerHTML=dashHTML(dist,false,'8개 지역 · 40스테이지를 모두 정복했습니다');
+  const n=carryCount(),nc=NG.cycle+1;
+  const p=document.createElement('div');p.id='ngPanel';
+  p.innerHTML='<h3>다음 회차(NG+) — 시작 병종 선택</h3><div class="nginfo">해금된 병종과 최고 기록은 영구 유지됩니다. 고른 병종 '+n+'명으로 '+nc+'회차를 시작합니다.<br>'+nc+'회차: 적 체력 +'+Math.round(0.45*NG.cycle*100)+'% · 상자 수치 +'+Math.round(0.3*NG.cycle*100)+'% · 시작 공격력 +'+Math.round(0.10*NG.cycle*100)+'%</div><div class="ngbtns"></div>';
+  const btns=p.querySelector('.ngbtns');
+  NG.unlocked.forEach(cls=>{const b=document.createElement('button');b.className='go ngbtn';b.textContent=CLS_KO[cls]+' 부대 ('+n+'명)';
+    b.addEventListener('click',()=>{NG.cycle=nc;NG.carry={cls,n};saveNG();location.reload();});btns.appendChild(b);});
+  $('endBody').appendChild(p);
+  $('retryBtn').classList.add('hidden');
   $('end').classList.remove('hidden');$('end').scrollTop=0;
 }
 let __bn=null;
@@ -1033,8 +1093,12 @@ function update(dt){
 }
 init().catch(e=>{console.error(e);window.__err=String(e.stack||e);});
 window.__spawn=async(type,x,dz)=>{await spawnFoe(type,x,G.squad.position.z-dz,false,null);return 1;}; // 테스트 훅
-window.__step=(n,dt)=>{window.__fn=(window.__fn||performance.now());for(let i=0;i<n;i++){window.__skipDraw=i<n-1;window.__fn+=dt*1000;tick(window.__fn);}return 1;}; // 검증 훅: 수동 프레임 진행(실제 렌더는 마지막 프레임만)
+window.__step=(n,dt)=>{window.__fn=(window.__fn||performance.now());for(let i=0;i<n;i++){window.__skipDraw=i<n-1;window.__fn+=dt*1000;tick(window.__fn);}last=performance.now();return 1;}; // 검증 훅: 수동 프레임 진행(실제 렌더는 마지막 프레임만) — 종료 시 내부 시계를 실시간에 재동기화(rAF 보간 프레임의 음수 dt 되감기 방지)
 window.__numTest=(n,x,z)=>{const o=makeNumSprite(n);o.sprite.position.set(x,2,G.squad.position.z-z);scene.add(o.sprite);return 1;}; // 검증 훅: 숫자 스프라이트 표시
 window.__bossTest=async(stage,x,dz)=>{const o=G.stage;G.stage=stage;await spawnFoe(null,x,G.squad.position.z-dz,true,'boss');G.stage=o;return 1;}; // 검증 훅
 window.__end=c=>endGame(c);
 window.__fwd=v=>{CFG.fwdSpeed=v;return 1;}; // 검증 훅
+window.__ng=()=>NG; // 검증 훅: 다회차 상태
+window.__layout=n=>stageLayout(n); // 검증 훅: 구간 배치(지역별 적 조합 확인)
+window.__theme=n=>themeOf(n).name; // 검증 훅: 지역 테마 이름
+window.__victory=()=>victory(); // 검증 훅
