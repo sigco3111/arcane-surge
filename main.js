@@ -88,7 +88,7 @@ function sparkBurst(color,s=1){ // 링 없는 명중 스파크: 방사형 짧은
 // ---------- config (수치 전부 초안) ----------
 const CFG={
   fwdSpeed:3.5, foeSpdMul:1.3, dragClamp:2.1, defLine:2.6, // 전진 2.4->3.0->3.5 (사용자 11-27 12:36 양쪽 가속 + 14:15 "이동은 좀더 빨라도"), 적 속도 1.30 유지
-  lives:8, lvK0:6, lvStep:3, levelMul:1.08, // 생명 8 유지 · 성장 둔화(사용자 11-27 16:37 "강해지는 속도가 좀 줄던지"): 필요 처치가 6,9,12…로 늘고 배율 1.15→1.07 — 기존엔 후반 수백~수천 레벨 ×1.15로 배율이 10^50배 이상 폭증해 후반이 무의미해짐
+  lives:8, lvK0:6, lvStep:4, levelMul:1.06, // 성장 둔화(사용자 11-27 16:37): L10까지 6처치 고정, 이후 레벨당 +4처치씩 증가, 배율 1.15→1.06 — 기존엔 ×1.15 누적으로 배율이 10^50배 이상 폭증해 후반이 무의미해짐
   stageLen:55,
   bossEvery:5, // 5스테이지마다 보스 / 지역(맵 테마)은 보스 이후 바뀜
   finalStage:40, // 8지역 x 5구간 = 40스테이지: 최종 보스(8번째) 격파가 클리어 조건(사용자 승인 11-27)
@@ -350,7 +350,7 @@ async function spawnFoe(type,x,z,isBoss=false,wave){
   let f=isBoss?BOSS:FOES[type];let bdef=null;let bossIdx=0;
   if(isBoss){bossIdx=Math.floor(stg0/CFG.bossEvery);bdef=BOSSES[(bossIdx-1+BOSSES.length*100)%BOSSES.length];
     const gm=await loadG(A+BOSS.u),gb=await loadG(A+bdef.u);const refH=bboxH(gm.scene)*BOSS.s;
-    f={...BOSS,u:bdef.u,hp:Math.max(300,Math.round(refDps(stg0)*0.75*3.2*Math.sqrt(bdef.hpm||1))),s:refH*bdef.m/bboxH(gb.scene),hy:refH*bdef.m+0.8};} // 보스 체력 = 구간 기준 화력(의 75%)×3.2초: 스테이지 고정값이라 성장·병종 선택이 그대로 결전 시간 단축으로 체감됨(기준 편성이면 약 4초, 돌파 창구 약 5초)(11-27 16:37)
+    f={...BOSS,u:bdef.u,hp:Math.max(300,Math.round(refDps(stg0)*0.6*3.2*Math.sqrt(bdef.hpm||1))),s:refH*bdef.m/bboxH(gb.scene),hy:refH*bdef.m+0.8};} // 보스 체력 = 구간 기준 화력(의 60%)×3.2초: 스테이지 고정값이라 성장·병종 선택이 결전 시간 단축으로 체감됨(기준 편성 약 3.2초, 돌파 창구 약 5초, 11-27 재조정)
   const rf=regionFoes(stg0); // 지역별 적 보정(조합은 stageLayout이 결정)
   const hscale=(isBoss?1:(stg0===1?0.31:stg0===2?0.65:stageMul(stg0)))*(isBoss?cycleHp():rf.hp*cycleHp()); // 보스는 refDps 기준 스케일이라 구간 곡선 미적용(회차 보정만) // 기본 체력 +30% 반영: 1스테이지 계수 0.52→0.31(=구 곡선×0.6: 사거리 너프 실효 보존 기준), 2스테이지부터 상승 곡선 그대로
   const sscale=(isBoss?1:Math.min(1.9,1+0.07*(stg0-1))*(stg0===1?0.85:1))*(isBoss?1:rf.spd)*cycleSpd(); // 원작 참고: 단계가 갈수록 적 이동 가속 — 속도 상한 1.5→1.9: 체력 스펀지가 아니라 압박으로 후반 긴장 유지(11-27 16:37)
@@ -396,7 +396,7 @@ async function spawnBlock(kind,x,z){
   }else{
     const cry=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.9,0.5),new THREE.MeshStandardMaterial({color:0x66e0ff,emissive:0x2288cc,emissiveIntensity:1.6,roughness:0.2}));
     cry.position.y=0.55;cry.rotation.y=Math.PI/4;grp.add(cry);
-    const tag=labelSprite('공격력 +5%','#9fe8ff',2.6);tag.position.y=2.1;grp.add(tag);
+    const tag=labelSprite('공격력 +2%','#9fe8ff',2.6);tag.position.y=2.1;grp.add(tag);
     grp.userData.tag=tag;
   }
   grp.add(discShadow(0.5));
@@ -412,7 +412,7 @@ function stageLayout(n){
   const R=(a,b)=>a+Math.random()*(b-a); // 진행 랜덤화(사용자 11-27 12:36 "항상 같은 패턴"): 파도 위치·무리 구성·보상 배치가 매 판 달라짐
   if(!isBossStage(n)){
     const foeTypes=regionFoes(n).mix; // 지역별 적 조합(11-27 확장)
-    const waves=n===1?9:10+Math.floor(n/6)+Math.floor(R(0,3)); // 파도 수도 스테이지와 함께 증가(사용자 11-27 16:37 "2스테이지부터 매 스테이지 적 증가")
+    const waves=n===1?9:11+Math.floor(n/6)+Math.floor(R(0,3)); // 파도 수도 스테이지와 함께 증가(사용자 11-27 16:37 "2스테이지부터 매 스테이지 적 증가")
     let dz=n===1?R(11,14):R(13,16);
     for(let w=0;w<waves;w++){
       const rush=n>1&&Math.random()<Math.min(0.35,0.16+0.005*n); // 속공 무리 확률도 단계 상승(후반 압박)
@@ -444,6 +444,8 @@ function stageLayout(n){
     L.push({dz:j(39),type:'foe',foe:pick(),x:jx(-1.6),wave:4});
     L.push({dz:j(46),type:'foe',foe:pick(),x:jx(-0.9),wave:5});
     L.push({dz:j(47),type:'foe',foe:pick(),x:jx(1.5),wave:5});
+    L.push({dz:j(13),type:'foe',foe:pick(),x:jx(-1.3),wave:0});
+    L.push({dz:j(29),type:'foe',foe:pick(),x:jx(-0.7),wave:2}); // 보스 구간 잔졸 기본 17→19: 이전 스테이지 대비 물량 증가 원칙(11-27 16:37)을 보스 구간에도 적용
     L.push({dz:j(51),type:'foe',foe:pick(),x:jx(-1.4),wave:6});
     L.push({dz:j(52),type:'foe',foe:pick(),x:jx(0.8),wave:6});
     const extraF=Math.floor(n/8);for(let w=0;w<7;w++)for(let i=0;i<extraF;i++)L.push({dz:j(10+w*6),type:'foe',foe:pick(),x:jx((i%2?1:-1)*(0.5+0.4*i)),wave:w}); // 보스 구간 잔졸도 단계당 증원(11-27 16:37)
@@ -730,14 +732,14 @@ function killUnit(t){
       {const rp=ring(0xffd966,1.0,0.8);rp.position.set(p.x,0.12,p.z);addFx(rp,0.6);} // 밝은 중심면 없는 얇은 고리 표시(비교빌드)
       const l=labelSprite('대원 +1','#ffd966',2.2);l.position.copy(p).add(new THREE.Vector3(0,1,0));addFx(l,1.6);
       if(G.allies.length<16)spawnAlly(G.cls);
-      // 인원 상한 후 상자 보상 1.1→1.02: 후반 매 스테이지 2개씩 누적되며 폭증하던 축(11-27 16:37)
-      else{G.dmgMul*=1.02;const l2=labelSprite('단련: 공격력 +2%','#ffd966',2.2);l2.position.copy(p).add(new THREE.Vector3(0,2,0));addFx(l2,1.6);} // 인원 상한(시제품 16) 이후 보상 대체(제안값)
+      // 인원 상한 후 상자 보상 1.1→1.01: 후반 매 스테이지 2개씩 누적되며 폭증하던 축(11-27 재조정)
+      else{G.dmgMul*=1.01;const l2=labelSprite('단련: 공격력 +1%','#ffd966',2.2);l2.position.copy(p).add(new THREE.Vector3(0,2,0));addFx(l2,1.6);} // 인원 상한(시제품 16) 이후 보상 대체(제안값)
     }else if(t.btype==='captive'){G.st.captives++;
       convertSquad(t.obj.userData.rewardCls||'Knight'); // 전환: 비행탄 제거+전원 교체+1명은 convertSquad 내부
     }else{
       {const rp=ring(0x9fe8ff,1.0,0.8);rp.position.set(p.x,0.12,p.z);addFx(rp,0.6);} // 밝은 중심면 없는 얇은 고리 표시(비교빌드)
-      G.dmgMul*=1.05;G.st.crystals++; // 수정 배율 1.2→1.05: 스테이지당 1개×40회 누적이 후반 화력 폭증의 한 축(11-27 16:37)
-      const l=labelSprite('공격력 +5%','#9fe8ff',2.4);l.position.copy(p).add(new THREE.Vector3(0,1,0));addFx(l,1.6);
+      G.dmgMul*=1.02;G.st.crystals++; // 수정 배율 1.2→1.02: 스테이지당 1개×40회 누적이 후반 화력 폭증의 한 축이었음(11-27 재조정)
+      const l=labelSprite('공격력 +2%','#9fe8ff',2.4);l.position.copy(p).add(new THREE.Vector3(0,1,0));addFx(l,1.6);
     }
     if(t.hpNum){t.obj.remove(t.hpNum.sprite);t.hpNum=null;}
     if(t.obj.userData.tag){t.obj.remove(t.obj.userData.tag);t.obj.userData.tag=null;} // 파괴된 블록의 보상 라벨 잔존 방지
