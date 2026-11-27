@@ -87,7 +87,7 @@ function sparkBurst(color,s=1){ // 링 없는 명중 스파크: 방사형 짧은
 
 // ---------- config (수치 전부 초안) ----------
 const CFG={
-  fwdSpeed:1.7, dragClamp:2.1, defLine:2.6,
+  fwdSpeed:2.3, dragClamp:2.1, defLine:2.6, // 전진 1.7->2.3(+35%) (사용자 11-27: 전진이 답답·난이도 좀 쉬움 — 속도 상향으로 진행 압박도 함께 상승. 2.6 시험 결과 1스테이지 첫 파도 돌파 여유 7.1s->4.5s로 과하게 급변해 2.3으로 조정)
   lives:5, killsPerLevel:8, levelMul:1.15,
   stageLen:55,
   bossEvery:5, // 5스테이지마다 보스, 보스 격파 후에도 계속 진행(무한 런) / 지역(맵 테마)은 보스 이후 바뀜
@@ -179,7 +179,7 @@ const FXLIST=new URLSearchParams(location.search).get('fxlist');
 const NUMFX=parseInt(new URLSearchParams(location.search).get('numfx')||'1',10); // 시연: 숫자 차감 강조
 const DART=!!new URLSearchParams(location.search).get('dart'); // 시연: 원작식 빠른 직사 연사감
 const PSPD=DART?58:30; // 효과 청취 전용: id=경로,id=경로
-const BOSS={u:'bosses/Mushnub_Evolved.gltf',hp:520,spd:1.9,s:0.95,rr:1.3,gltf:true};
+const BOSS={u:'bosses/Mushnub_Evolved.gltf',hp:520,spd:1.2,s:0.95,rr:1.3,gltf:true}; // 접근 1.9->1.2: 전진 2.6과 합산 상대속도 3.8로 기존(3.6) 수준 유지 — 보스전 시간 동일
 const BOSSES=[{u:'bosses/Mushnub_Evolved.gltf',name:'머쉬넙',m:1},{u:'bosses/Orc.gltf',name:'오크 대장',m:1.15},{u:'bosses/Cyclops.gltf',name:'사이클롭스',m:1.3},
   {u:'bosses/Yeti.gltf',name:'예티',m:1.2},{u:'bosses/YellowDragon.gltf',name:'황금 드래곤',m:1.25},{u:'bosses/Cthulhu.gltf',name:'심연의 군주',m:1.2}]; // 보스 순환(원 보스 크기 기준으로 자동 정규화)
 const bboxH=o=>{const b=new THREE.Box3().setFromObject(o);return Math.max(0.01,b.max.y-b.min.y);};
@@ -356,7 +356,7 @@ async function spawnBlock(kind,x,z){
     grp.userData.tag=tag;
   }
   grp.add(discShadow(0.5));
-  const bhp=Math.round(REC_DPS*blockMul(G.stage)*6); // 구간 권장 화력 x 약 6초, 스폰 시점 고정(현재 공격 배율과 무관 — 제안서) // 원작 참고: 진행할수록 상자 수치 증가
+  const bhp=Math.round(REC_DPS*blockMul(G.stage)*4.2); // 구간 권장 화력 x 약 4.2초(전진 가속으로 사거리 체류 8.2s->5.4s로 줄어 6초는 파괴 불가 — 동일 파괴 여유 유지), 스폰 시점 고정(현재 공격 배율과 무관 — 제안서) // 원작 참고: 진행할수록 상자 수치 증가
   const unit={kind:'block',btype:kind,hp:bhp,maxHp:bhp,obj:grp,hitT:0};
   const num=makeNumSprite(bhp);num.sprite.position.y=1.55;grp.add(num.sprite);unit.hpNum=num;
   scene.add(grp);G.blocks.push(unit);
@@ -367,7 +367,7 @@ function stageLayout(n){
   const L=[];const z0=-CFG.stageLen*(n-1);
   if(!isBossStage(n)){
     const foeTypes=['Warrior','Minion','Rogue','Mage'];
-    [19,25,31,37,43,49,55,61].forEach((dz,w)=>{ // 원작 참고: 파도 수·밀도 상향(더 빨리 더 많이), 첫 파도는 접촉 여유 확보
+    [16,22,28,34,40,46,52,58].forEach((dz,w)=>{ // 배치 압축(11-27: 빈 이동 구간 제거) — 첫 파도 16부터 6 간격, 마지막 파도는 다음 구간 초반까지 이어짐
       const cnt=n===1?2+(w%2):Math.min(8,3+n); // 1스테이지는 파도당 2~3마리, 2스테이지부터 늘어남(상한 8)
       const cx=[-1.4,1.6,-0.6,1.2,-1.8,0.9,-1.2,1.7][w%8]; // 원작처럼 파도가 통로 이곳저곳에 뭉쳐 나옴 — 가만히 서 있으면 맞지 않는 파도가 생김
       for(let i=0;i<cnt;i++){
@@ -375,10 +375,10 @@ function stageLayout(n){
         L.push({dz:dz+ (i%2)*1.6, type:'foe',foe:t,x:cx+((i*47)%10)/10*1.4-0.7,wave:w});
       }
     });
-    L.push({dz:12,type:'chest',x:-1.5});
-    L.push({dz:26,type:'crystal',x:-1.6});
-    L.push({dz:38,type:'chest',x:1.6}); // 상자 2개/구간으로 보상 간격 축소
-    L.push({dz:50,type:'captive',x:n%2?1.7:-1.7}); // 구간당 감옥 1개, 통로 가장자리(회피 가능)
+    L.push({dz:10,type:'chest',x:-1.5});
+    L.push({dz:22,type:'crystal',x:-1.6});
+    L.push({dz:32,type:'chest',x:1.6}); // 상자 2개/구간으로 보상 간격 축소
+    L.push({dz:44,type:'captive',x:n%2?1.7:-1.7}); // 구간당 감옥 1개, 통로 가장자리(회피 가능)
   }else{
     L.push({dz:8,type:'foe',foe:'Warrior',x:0.9,wave:0});
     L.push({dz:11,type:'foe',foe:'Minion',x:1.8,wave:0});
@@ -387,8 +387,16 @@ function stageLayout(n){
     L.push({dz:21,type:'foe',foe:'Mage',x:1.7,wave:2});
     L.push({dz:23,type:'foe',foe:'Minion',x:0.8,wave:2});
     L.push({dz:25,type:'boss',x:0,wave:'boss'});
-    L.push({dz:46,type:'chest',x:1.6}); // 보스 격파 보상: 이어서 계속 진행
-    L.push({dz:55,type:'captive',x:-1.7});
+    L.push({dz:33,type:'foe',foe:'Minion',x:1.3,wave:3}); // 보스 이후 빈 구간 제거(11-27): 격파 후에도 흐름이 이어지도록 잔여 파도 2줄
+    L.push({dz:34,type:'foe',foe:'Warrior',x:-1.2,wave:3});
+    L.push({dz:38,type:'foe',foe:'Rogue',x:0.4,wave:4});
+    L.push({dz:39,type:'foe',foe:'Minion',x:-1.6,wave:4});
+    L.push({dz:46,type:'foe',foe:'Warrior',x:-0.9,wave:5}); // 보스 결전 중에도 잔졸이 계속 도래 — 장기전 중 처치 공백(측정 최대 12초) 방지
+    L.push({dz:47,type:'foe',foe:'Minion',x:1.5,wave:5});
+    L.push({dz:51,type:'foe',foe:'Rogue',x:-1.4,wave:6});
+    L.push({dz:52,type:'foe',foe:'Blob',x:0.8,wave:6});
+    L.push({dz:42,type:'chest',x:1.6}); // 보스 격파 보상: 이어서 계속 진행
+    L.push({dz:51,type:'captive',x:-1.7});
   }
   L.forEach(e=>e.z=z0-e.dz);
   return L;
@@ -906,7 +914,7 @@ function update(dt){
   // stage spawning
   G.layout.forEach((e,i)=>{
     if(G.spawned.has(i))return;
-    if(e.z<sq.z-24)return; // 파도가 시간차를 두고 도래하도록 스폰 예지 거리 조정(한꺼번에 몰려와 순삭되는 것 방지)
+    if(e.z<sq.z-34)return; // 예지 24->34: 다음 구간 파도가 전환 전에 미리 접근을 시작해 스테이지 경계의 전투 공백 제거(사용자 11-27)
     G.spawned.add(i);
     if(e.type==='foe'){if(!BOSSONLY)spawnFoe(e.foe,e.x,e.z,false,e.wave);}
     else if(e.type==='boss')spawnFoe(null,e.x,e.z,true,e.wave);
